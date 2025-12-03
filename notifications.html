@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Curaline – Notifications</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+
+  <body class="flex min-h-screen bg-[#F3F6FA] text-gray-800">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-[#2F5395] text-white flex flex-col">
+      <div class="p-6 border-b border-[#3EDCDE]">
+        <h1 class="text-3xl font-extrabold tracking-wide">Curaline</h1>
+      </div>
+
+      <nav class="flex-1 p-4 space-y-2">
+        <a
+          href="dashboard.html"
+          class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition"
+          >Dashboard</a
+        >
+        <a
+          href="#"
+          class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition"
+          >Patients</a
+        >
+        <a
+          href="appointments.html"
+          class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition"
+          >Appointments</a
+        >
+        <a
+          href="notifications.html"
+          class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition"
+          >Notifications</a
+        >
+      </nav>
+
+      <div class="p-4 mt-auto">
+        <button
+          class="w-full bg-[#9FA2B2] py-2 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition font-semibold"
+        >
+          Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col">
+      <!-- Top bar -->
+      <header
+        class="bg-white shadow p-4 flex justify-between items-center border-b border-[#E0E3E7]"
+      >
+        <h1 class="text-xl font-semibold text-[#2F5395]">Notifications</h1>
+        <div class="flex items-center gap-3">
+          <span class="text-[#9FA2B2] font-medium">Admin</span>
+          <img
+            src="https://placehold.co/40x40"
+            alt="avatar"
+            class="rounded-full border-2 border-[#3EDCDE]"
+          />
+        </div>
+      </header>
+
+      <!-- Notifications Panel-->
+
+      <div class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition">
+        <h2 class="text-lg font-semibold text-[#2F5395] mb-2">Notifications</h2>
+        <p class="text-[#9FA2B2]">
+          Active Notifications:
+          <span class="font-bold text-[#3EDCDE]">6</span>
+          <span class="font-semibold text-[#9FA2B2]"
+            >Pending Notifications</span
+          >
+        </p>
+        <div class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition">
+          <h2 class="text-lg font-semibold text-[#2F5395] mb-2">Dr. Barnes</h2>
+          <p>Scheduled meeting for:</p>
+          <p class="font-semibold text-[#2F5395]">January 3, 9:30 PM</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

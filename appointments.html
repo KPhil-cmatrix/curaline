@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Curaline – Appointments</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+
+  <body class="flex min-h-screen bg-[#F3F6FA] text-gray-800">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-[#2F5395] text-white flex flex-col">
+      <div class="p-6 border-b border-[#3EDCDE]">
+        <h1 class="text-3xl font-extrabold tracking-wide">Curaline</h1>
+      </div>
+
+      <nav class="flex-1 p-4 space-y-2">
+        <a
+          href="dashboard.html"
+          class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition"
+          >Dashboard</a
+        >
+        <a
+          href="#"
+          class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition"
+          >Patients</a
+        >
+        <a
+          href="appointments.html"
+          class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition"
+          >Appointments</a
+        >
+        <a
+          href="notifications.html"
+          class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition"
+          >Notifications</a
+        >
+      </nav>
+
+      <div class="p-4 mt-auto">
+        <button
+          class="w-full bg-[#9FA2B2] py-2 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition font-semibold"
+        >
+          Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col">
+      <!-- Top bar -->
+      <header
+        class="bg-white shadow p-4 flex justify-between items-center border-b border-[#E0E3E7]"
+      >
+        <h1 class="text-2xl font-semibold text-[#2F5395]">Appointments</h1>
+        <div class="flex items-center gap-3">
+          <span class="text-[#9FA2B2] font-medium">Admin</span>
+          <img
+            src="https://placehold.co/40x40"
+            alt="avatar"
+            class="rounded-full border-2 border-[#3EDCDE]"
+          />
+        </div>
+      </header>
+
+      <!-- Appointment content -->
+      <main class="flex-1 p-6 space-y-6">
+        <!-- Book Appointment -->
+        <div class="bg-white rounded-xl shadow p-6">
+          <h2 class="text-lg font-semibold text-[#2F5395] mb-4">
+            Book a New Appointment
+          </h2>
+          <form class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium mb-1 text-[#2F5395]"
+                >Select Doctor</label
+              >
+              <select
+                class="w-full border border-[#8FBFE0] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#3EDCDE]"
+              >
+                <option>Dr. Rizvi - Endodontists</option>
+                <option>Dr. Watson - Orthodontists</option>
+                <option>Dr. Barnes - Prosthodontists</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1 text-[#2F5395]"
+                >Date</label
+              >
+              <input
+                type="date"
+                class="w-full border border-[#8FBFE0] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#3EDCDE]"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1 text-[#2F5395]"
+                >Time</label
+              >
+              <input
+                type="time"
+                class="w-full border border-[#8FBFE0] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#3EDCDE]"
+              />
+            </div>
+            <button
+              type="submit"
+              class="bg-[#2F5395] text-white px-4 py-2 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition font-medium"
+            >
+              Book Appointment
+            </button>
+          </form>
+        </div>
+
+        <!-- Section: Upcoming Appointments -->
+        <div class="bg-white rounded-xl shadow p-6">
+          <h2 class="text-lg font-semibold text-[#2F5395] mb-4">
+            Upcoming Appointments
+          </h2>
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-[#8FBFE0]">
+                <th class="py-2 text-[#2F5395]">Doctor</th>
+                <th class="py-2 text-[#2F5395]">Date</th>
+                <th class="py-2 text-[#2F5395]">Time</th>
+                <th class="py-2 text-right text-[#2F5395]">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                class="border-b border-[#E0E3E7] hover:bg-[#F3F6FA] transition"
+              >
+                <td class="py-2">Dr. Rizvi</td>
+                <td class="py-2">2025-10-21</td>
+                <td class="py-2">09:30 AM</td>
+                <td class="py-2 text-right">
+                  <button
+                    class="bg-[#9FA2B2] text-white px-3 py-1 rounded-lg text-sm hover:bg-[#3EDCDE] hover:text-[#2F5395] transition"
+                  >
+                    Cancel
+                  </button>
+                </td>
+              </tr>
+              <tr class="hover:bg-[#F3F6FA] transition">
+                <td class="py-2">Dr. Barnes</td>
+                <td class="py-2">2025-10-25</td>
+                <td class="py-2">02:00 PM</td>
+                <td class="py-2 text-right">
+                  <button
+                    class="bg-[#9FA2B2] text-white px-3 py-1 rounded-lg text-sm hover:bg-[#3EDCDE] hover:text-[#2F5395] transition"
+                  >
+                    Cancel
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
