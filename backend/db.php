@@ -1,4 +1,15 @@
 <?php
+
+/*
+- System Name: Curaline Clinic Appointment and Patient Management System (Curaline)
+- Developers: Khalia Phillips, Havon James, and Tarik Wilson
+- Version: V2.2
+- Version Date: Dec 15, 2025
+- Purpose of File: Establishes DB connection
+*/
+
+
+// We make variables
 $host = "gateway01.us-east-1.prod.aws.tidbcloud.com";
 $port = 4000;
 $user = "RqeD4qMbpsjJ5Pe.root";

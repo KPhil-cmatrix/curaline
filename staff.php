@@ -1,18 +1,18 @@
 <?php
 
+/*
+- System Name: Curaline Clinic Appointment and Patient Management System (Curaline)
+- Developers: Khalia Phillips, Havon James, and Tarik Wilson
+- Version: V2.2
+- Version Date: Dec 15, 2025
+- Purpose of File: Displays general staff data
+*/
+
+
 // We block access if the user is not logged in and require general staff perms
 require __DIR__ . "/sessions/auth_staff.php";
 
 include "backend/db.php";
-
-
-if (
-  !isset($_SESSION['logged_in']) ||
-  $_SESSION['staff_role'] === 'Patient'
-) {
-  header("Location: login.php");
-  exit;
-}
 
 // Get staff query
 

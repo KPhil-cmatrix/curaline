@@ -1,5 +1,14 @@
 <?php
 
+/*
+- System Name: Curaline Clinic Appointment and Patient Management System (Curaline)
+- Developers: Khalia Phillips, Havon James, and Tarik Wilson
+- Version: V2.2
+- Version Date: Dec 15, 2025
+- Purpose of File: File that handles login processing
+*/
+
+
 if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['logged_in'])) {
   header("Location: dashboard.php");
   exit;

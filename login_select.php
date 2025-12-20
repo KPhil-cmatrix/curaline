@@ -1,3 +1,13 @@
+<?php
+/*
+- System Name: Curaline Clinic Appointment and Patient Management System (Curaline)
+- Developers: Khalia Phillips, Havon James, and Tarik Wilson
+- Version: V2.2
+- Version Date: Dec 15, 2025
+- Purpose of File: Handles login selection to then process user login data
+*/
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
