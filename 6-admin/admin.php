@@ -360,76 +360,118 @@ $patient_list_result = mysqli_query($conn, $patient_list_sql);
   <meta charset="UTF-8">
   <title>Curaline – Admin Panel</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../1-assets/ui.css">
+  
 </head>
 
-<body class="flex min-h-screen bg-[#F3F6FA] text-gray-800">
+<body class="flex min-h-screen bg-gradient-to-br from-[#EEF3FA] to-[#C9D8F0] text-gray-800">
 
   <!------------ SIDEBAR ------------>
-  <aside class="w-64 bg-[#2F5395] text-white flex flex-col">
-    <div class="p-6 border-b border-[#3EDCDE] flex justify-center">
+  <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl">
+
+    <!-- Logo -->
+    <div class="px-6 py-6 border-b border-white/10 flex items-center justify-center">
       <img src="../1-assets/curalineWhiteLogo.png" alt="Curaline" class="h-12 w-auto">
     </div>
 
+    <!-- Navigation -->
     <nav class="flex-1 p-4 space-y-2">
+
       <a href="../5-staff/dashboard.php"
-        class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition">
-        Dashboard
+        class="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 transition-all duration-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 3v18h18M9 17V9m4 8V5m4 12v-4" />
+        </svg>
+        <span>Dashboard</span>
       </a>
 
       <a href="../5-staff/patients.php"
-        class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition">
-        Patients
+        class="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 transition-all duration-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M16 14a4 4 0 10-8 0m8 0a4 4 0 10-8 0m8 0v1a2 2 0 002 2h1m-11-3v1a2 2 0 01-2 2H4" />
+        </svg>
+        <span>Patients</span>
       </a>
 
       <a href="../5-staff/staff.php"
-        class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition">
-        Staff
+        class="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 transition-all duration-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M5.121 17.804A7.969 7.969 0 0112 15c2.136 0 4.07.84 5.879 2.204M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span>Staff</span>
       </a>
 
       <a href="../5-staff/appointments.php"
-        class="block py-2 px-4 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition">
-        Appointments
+        class="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 transition-all duration-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M8 7V3m8 4V3m-9 8h10m-11 8h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        <span>Appointments</span>
       </a>
 
       <?php if ($_SESSION['staff_role'] === 'Admin'): ?>
         <a href="../6-admin/admin.php"
-          class="block py-2 px-4 rounded-lg bg-[#3EDCDE] text-[#F3F6FA] transition">
-          Admin
+          class="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#3EDCDE] text-[#2F5395] font-medium shadow-md transition-all duration-200">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M11.983 5.176a2 2 0 012.034 0l1.607.93a2 2 0 001.518.18l1.78-.48a2 2 0 012.452 2.452l-.48 1.78a2 2 0 00.18 1.518l.93 1.607a2 2 0 010 2.034l-.93 1.607a2 2 0 00-.18 1.518l.48 1.78a2 2 0 01-2.452 2.452l-1.78-.48a2 2 0 00-1.518.18l-1.607.93a2 2 0 01-2.034 0l-1.607-.93a2 2 0 00-1.518-.18l-1.78.48a2 2 0 01-2.452-2.452l.48-1.78a2 2 0 00-.18-1.518l-.93-1.607a2 2 0 010-2.034l.93-1.607a2 2 0 00.18-1.518l-.48-1.78a2 2 0 012.452-2.452l1.78.48a2 2 0 001.518-.18l1.607-.93z" />
+          </svg>
+          <span>Admin</span>
         </a>
       <?php endif; ?>
+
     </nav>
 
-    <div class="p-4 mt-auto">
+    <!-- Bottom block -->
+    <div class="p-4 border-t border-white/10 space-y-3 mt-auto">
+      <div class="flex items-center gap-3 px-2">
+        <div class="w-10 h-10 rounded-full bg-[#3EDCDE] flex items-center justify-center font-bold text-white shrink-0">
+          <?= strtoupper(substr($_SESSION['staff_role'], 0, 1)) ?>
+        </div>
+        <div class="text-sm min-w-0">
+          <p class="font-medium leading-tight"><?= $_SESSION['staff_role'] ?></p>
+          <p class="text-xs text-white/60 leading-tight">ID: <?= $_SESSION['user_id'] ?></p>
+        </div>
+      </div>
+
       <a href="../3-sessions/logout.php"
-        class="w-full block text-center bg-[#9FA2B2] py-2 rounded-lg font-semibold">
+        class="block w-full text-center bg-white/20 hover:bg-white/30 transition-all duration-200 py-2 rounded-xl text-sm font-semibold">
         Logout
       </a>
     </div>
+
   </aside>
 
-  <!-------------- MAIN CONTENT -------------->
+    <!------------ Main content ------------>
 
-  <div class="flex-1 flex flex-col">
+  <div class="flex-1 p-6 space-y-6 max-w-6xl">
 
-    <header class="bg-white shadow p-4 flex justify-between items-center border-b border-[#E0E3E7]">
-      <h1 class="text-2xl font-semibold text-[#2F5395]">Admin</h1>
+    <header class="app-card p-6 flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-[#2F5395]">Admin</h1>
+        <p class="text-sm text-gray-500 mt-1">Manage staff and patient records</p>
+      </div>
+
       <div class="flex items-center gap-3">
-        <span class="text-[#9FA2B2] font-medium">
-          <?= $_SESSION['staff_role'] ?> • <?= $_SESSION['user_id'] ?>
+        <span class="text-sm text-[#9FA2B2]">
+          ID: <?= $_SESSION['user_id'] ?>
         </span>
-        <img
-          src="https://placehold.co/40x40"
-          alt="avatar"
-          class="rounded-full border-2 border-[#3EDCDE]"
-        />
+        <div class="w-10 h-10 flex items-center justify-center rounded-full bg-[#3EDCDE] text-white font-semibold">
+          <?= strtoupper(substr($_SESSION['staff_role'], 0, 1)) ?>
+        </div>
       </div>
     </header>
+
 
     <main class="flex-1 p-6 space-y-6">
 
       <!------------ CREATE FORM CARD ------------>
 
-      <div class="bg-white shadow rounded-xl p-6 w-full max-w-xl">
+      <div class="app-card bg-white shadow rounded-xl p-6 w-full max-w-xl">
         <?php if ($error): ?>
           <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4">
             <?= $error ?>
@@ -601,7 +643,7 @@ $patient_list_result = mysqli_query($conn, $patient_list_sql);
 
       <!------------ STAFF RECORDS TABLE ------------>
 
-      <div class="bg-white shadow rounded-xl p-6 w-full">
+      <div class="app-card bg-white shadow rounded-xl p-6 w-full">
         <h2 class="text-xl font-semibold text-[#2F5395] mb-4">Staff Records</h2>
 
         <div class="overflow-x-auto">
@@ -647,7 +689,7 @@ $patient_list_result = mysqli_query($conn, $patient_list_sql);
 
       <!------------ PATIENT RECORDS TABLE ------------>
 
-      <div class="bg-white shadow rounded-xl p-6 w-full">
+      <div class="app-card bg-white shadow rounded-xl p-6 w-full">
         <h2 class="text-xl font-semibold text-[#2F5395] mb-4">Patient Records</h2>
 
         <div class="overflow-x-auto">
