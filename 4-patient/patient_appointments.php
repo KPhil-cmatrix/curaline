@@ -108,90 +108,121 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_appointment']
 ?>
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Curaline – My Appointments</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Curaline – My Appointments</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../1-assets/ui.css">
+  </head>
 
-<body class="flex min-h-screen bg-[#F3F6FA] text-gray-800">
+  <body class="flex min-h-screen bg-gradient-to-br from-[#EEF3FA] to-[#C9D8F0] text-gray-800">
 
-  <aside class="w-64 bg-[#2F5395] text-white flex flex-col">
-    <div class="p-6 border-b border-[#3EDCDE] flex justify-center">
-      <img src="../1-assets/curalineWhiteLogo.png" alt="Curaline" class="h-12 w-auto">
-    </div>
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl">
 
-    <nav class="flex-1 p-4 space-y-2">
-      <a href="patient_dashboard.php" class="block py-2 px-4 rounded-lg hover:bg-white/10 text-lg">
-        Dashboard
-      </a>
-      <a href="patient_appointments.php" class="block py-2 px-4 rounded-lg bg-[#3EDCDE] text-[#F3F6FA] text-xl transition">
-        My Appointments
-      </a>
-      <a href="patient_profile.php" class="block py-2 px-4 rounded-lg hover:bg-white/10 text-lg">
-        My Profile
-      </a>
-    </nav>
+      <!-- Logo -->
+      <div class="px-6 py-6 border-b border-white/10 flex items-center justify-center">
+        <img src="../1-assets/curalineWhiteLogo.png" alt="Curaline" class="h-12 w-auto">
+      </div>
 
-    <div class="p-4 mt-auto">
-      <a href="../3-sessions/logout.php"
-        class="w-full block text-center bg-[#9FA2B2] py-2 rounded-lg font-semibold">
-        Logout
-      </a>
-    </div>
-  </aside>
+      <!-- Navigation -->
+      <nav class="flex-1 p-4 space-y-2">
 
-  <div class="flex-1 flex flex-col">
+        <!-- Dashboard -->
+        <a href="patient_dashboard.php"
+          class="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 transition-all duration-200">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 3v18h18M9 17V9m4 8V5m4 12v-4" />
+          </svg>
+          <span>Dashboard</span>
+        </a>
 
-    <header class="bg-white shadow p-4 flex justify-between items-center border-b border-[#E0E3E7]">
-      <h1 class="text-2xl font-semibold text-[#2F5395]">My Appointments</h1>
-      <span class="text-[#9FA2B2] font-medium">
-        Patient • <?= $_SESSION['user_id'] ?>
-      </span>
-    </header>
-    
-    <main class="flex-1 p-6 space-y-6">
-    
-            <div class="bg-white rounded-xl shadow p-6 mb-6">
-        <h3 class="text-lg font-semibold text-[#2F5395] mb-4">Request an Appointment</h3>
+        <!-- My Appointments ACTIVE -->
+        <a href="patient_appointments.php"
+          class="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#3EDCDE] text-[#2F5395] font-medium shadow-md transition-all duration-200">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10m-11 8h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <span>My Appointments</span>
+        </a>
+
+        <!-- My Profile -->
+        <a href="patient_profile.php"
+          class="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 transition-all duration-200">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M5.121 17.804A7.969 7.969 0 0112 15c2.136 0 4.07.84 5.879 2.204M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span>My Profile</span>
+        </a>
+
+      </nav>
+
+      <!-- Bottom -->
+      <div class="p-4 border-t border-white/10 space-y-3 mt-auto">
+        <div class="flex items-center gap-3 px-2">
+          <div class="w-10 h-10 rounded-full bg-[#3EDCDE] flex items-center justify-center font-bold text-white shrink-0">
+            <?= strtoupper(substr($_SESSION['first_name'], 0, 1)) ?>
+          </div>
+          <div class="text-sm min-w-0">
+            <p class="font-medium leading-tight">Patient</p>
+            <p class="text-xs text-white/60 leading-tight">ID: <?= $_SESSION['user_id'] ?></p>
+          </div>
+        </div>
+
+        <a href="../3-sessions/logout.php"
+          class="block w-full text-center bg-white/20 hover:bg-white/30 transition-all duration-200 py-2 rounded-xl text-sm font-semibold">
+          Logout
+        </a>
+      </div>
+
+    </aside>
+
+    <!-- MAIN -->
+    <div class="flex-1 p-6 space-y-6 max-w-6xl">
+
+      <!-- HEADER -->
+      <header class="app-card p-6 flex justify-between items-center">
+        <div>
+          <h1 class="text-2xl font-bold text-[#2F5395]">My Appointments</h1>
+          <p class="text-sm text-gray-500 mt-1">Request and manage your appointments</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-[#9FA2B2]">ID: <?= $_SESSION['user_id'] ?></span>
+          <div class="w-10 h-10 rounded-full bg-[#3EDCDE] flex items-center justify-center text-white font-bold">
+            <?= strtoupper(substr($_SESSION['first_name'], 0, 1)) ?>
+          </div>
+        </div>
+      </header>
+
+      <!-- REQUEST CARD -->
+      <section class="app-card p-6">
+        <h2 class="text-xl font-semibold text-[#2F5395] mb-4">Request an Appointment</h2>
 
         <?php if ($request_error): ?>
-          <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4">
+          <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-4">
             <?= $request_error ?>
           </div>
         <?php endif; ?>
 
         <?php if ($request_success): ?>
-          <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded mb-4">
+          <div class="bg-green-100 text-green-700 px-4 py-2 rounded mb-4">
             <?= $request_success ?>
           </div>
         <?php endif; ?>
 
-        <?php
-        //=====================[ FETCH ACTIVE DENTISTS ]=====================\\
+        <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        $dentists_sql = "
-          select
-            staff_id,
-            first_name,
-            last_name
-          from staff_info
-          where staff_role = 'Dentist'
-          and is_active = 1
-          order by first_name, last_name
-        ";
-
-        $dentists_result = mysqli_query($conn, $dentists_sql);
-        ?>
-
-        <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="text-sm text-gray-600">Dentist</label>
+            <label class="block text-sm text-gray-600 mb-2">Dentist</label>
             <select
               name="dentist_id"
               required
-              class="w-full border rounded-lg p-2"
+              class="w-full border border-[#8FBFE0] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#3EDCDE]"
             >
               <option value="">Select Dentist</option>
 
@@ -206,23 +237,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_appointment']
           </div>
 
           <div>
-            <label class="text-sm text-gray-600">Dental Service</label>
+            <label class="block text-sm text-gray-600 mb-2">Dental Service</label>
             <input
               type="text"
               name="service"
               required
-              class="w-full border rounded-lg p-2"
               placeholder="Enter dental service"
+              class="w-full border border-[#8FBFE0] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#3EDCDE]"
             />
           </div>
 
           <div>
+            <label class="block text-sm text-gray-600 mb-2">Date & Time</label>
             <input
               type="datetime-local"
               name="appointment_datetime"
               min="<?= date('Y-m-d\TH:i') ?>"
               required
-              class="w-full border rounded-lg p-2"
+              class="w-full border border-[#8FBFE0] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#3EDCDE]"
             />
           </div>
 
@@ -230,49 +262,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_appointment']
             <button
               type="submit"
               name="request_appointment"
-              class="bg-[#2F5395] text-white px-6 py-2 rounded-lg hover:bg-[#3EDCDE]"
+              class="bg-[#2F5395] text-white px-6 py-2 rounded-lg hover:bg-[#3EDCDE] hover:text-[#2F5395] transition-all duration-200"
             >
               Submit Request
             </button>
           </div>
+
         </form>
-      </div>
-    
-      <div class="bg-white rounded-xl shadow p-6">
-        <h3 class="text-lg font-semibold text-[#2F5395] mb-4">Appointment History</h3>
+      </section>
 
-        <div class="overflow-x-auto">
-          <table class="w-full border-collapse text-left">
-            <thead>
-              <tr>
-                <th class="p-3 text-[#2F5395] font-semibold border-b border-[#8FBFE0]">Date-Time</th>
-                <th class="p-3 text-[#2F5395] font-semibold border-b border-[#8FBFE0]">Doctor</th>
-                <th class="p-3 text-[#2F5395] font-semibold border-b border-[#8FBFE0]">Service</th>
-                <th class="p-3 text-[#2F5395] font-semibold border-b border-[#8FBFE0]">Status</th>
+      <!-- HISTORY -->
+      <section class="app-card p-6">
+        <h2 class="text-xl font-semibold text-[#2F5395] mb-4">Appointment History</h2>
+
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[#8FBFE0] text-[#2F5395]">
+              <th class="py-3">Date</th>
+              <th class="py-3">Doctor</th>
+              <th class="py-3">Service</th>
+              <th class="py-3">Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <?php while ($row = mysqli_fetch_assoc($result)): ?>
+              <tr class="border-b hover:bg-[#F8FBFF]">
+
+                <td class="py-3"><?= $row['scheduled_datetime'] ?></td>
+
+                <td class="py-3">
+                  <?= $row['doctor_first_name'] ?> <?= $row['doctor_last_name'] ?>
+                </td>
+
+                <td class="py-3"><?= $row['dental_service_type'] ?></td>
+
+                <td class="py-3">
+                  <?php
+                    $status = strtolower($row['status']);
+                    $style = "bg-gray-100 text-gray-600";
+
+                    if ($status === "pending") $style = "bg-yellow-100 text-yellow-700";
+                    if ($status === "scheduled") $style = "bg-green-100 text-green-700";
+                    if ($status === "completed") $style = "bg-blue-100 text-blue-700";
+                    if ($status === "declined") $style = "bg-red-100 text-red-700";
+                  ?>
+                  <span class="px-3 py-1 rounded-full text-xs font-medium <?= $style ?>">
+                    <?= ucfirst($row['status']) ?>
+                  </span>
+                </td>
+
               </tr>
-            </thead>
-            <tbody>
-              <?php if ($result && mysqli_num_rows($result) > 0): ?>
-                <?php while ($row = mysqli_fetch_assoc($result)): ?>
-                  <tr>
-                    <td class="p-3 border-b border-[#E0E3E7]"><?= $row['scheduled_datetime'] ?></td>
-                    <td class="p-3 border-b border-[#E0E3E7]"><?= $row['doctor_first_name'] ?> <?= $row['doctor_last_name'] ?></td>
-                    <td class="p-3 border-b border-[#E0E3E7]"><?= $row['dental_service_type'] ?></td>
-                    <td class="p-3 border-b border-[#E0E3E7]"><?= $row['status'] ?></td>
-                  </tr>
-                <?php endwhile; ?>
-              <?php else: ?>
-                <tr>
-                  <td class="p-3 text-[#9FA2B2]" colspan="4">No appointments found.</td>
-                </tr>
-              <?php endif; ?>
-            </tbody>
-          </table>
-        </div>
+            <?php endwhile; ?>
+          </tbody>
+        </table>
 
-      </div>
-    </main>
-  </div>
+      </section>
 
-</body>
+    </div>
+
+  </body>
 </html>
