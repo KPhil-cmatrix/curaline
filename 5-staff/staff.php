@@ -201,7 +201,6 @@ if (!$staff_result) {
           </thead>
 
           <!------------ Table Body Content ------------>
-
           <tbody>
             <?php while ($row = mysqli_fetch_assoc($staff_result)) { ?>
               <tr>

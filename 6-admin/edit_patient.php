@@ -78,6 +78,17 @@ $auth_sql = "
 $auth_result = mysqli_query($conn, $auth_sql);
 $patient_auth = mysqli_fetch_assoc($auth_result);
 
+//===========================[ HANDLE RESET MFA ]===========================\\
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_mfa'])) {
+    $stmt = $conn->prepare("UPDATE patient_info SET mfa_secret = NULL, mfa_enabled = 0 WHERE patient_id = ?");
+    $stmt->bind_param("s", $patient_id);
+    $stmt->execute();
+
+    header("Location: edit_patient.php?patient_id=" . urlencode($patient_id) . "&mfa_reset=1");
+    exit;
+}
+
 //===========================[ HANDLE DEACTIVATE ]===========================\\
 
 if (isset($_POST['deactivate_patient'])) {
@@ -650,6 +661,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_patient'])) {
               >
                 Back
               </a>
+
+              <button
+                type="submit"
+                name="reset_mfa"
+                onclick="return confirm('Reset MFA for this patient? They will need to set it up again on next login.');"
+                class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-all duration-200">
+                Reset MFA
+              </button>
+
             </div>
 
           </form>

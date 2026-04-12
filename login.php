@@ -49,15 +49,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           sa.staff_id,
           sa.password_hash,
           si.staff_role,
-          si.first_name
+          si.first_name,
+          si.last_name,
+          si.mfa_secret
         from staff_auth sa
         join staff_info si on sa.staff_id = si.staff_id
         where sa.username = '$username'
-        and sa.is_active = 1
-        and si.is_active = 1
+          and sa.is_active = 1
+          and si.is_active = 1
         limit 1
       ";
-
       $result = mysqli_query($conn, $sql);
 
       if ($result && mysqli_num_rows($result) === 1) {
@@ -67,19 +68,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $error = "Invalid credentials.";
         } else {
 
-          // Create staff session
-          $_SESSION['user_id'] = $user['staff_id'];
-          $_SESSION['first_name'] = $user['first_name'];
-          $_SESSION['staff_role'] = $user['staff_role'];
-          $_SESSION['logged_in'] = true;
+          // Password is correct
 
-          // Redirect based on staff role
-          if ($user['staff_role'] === 'Admin') {
-            header("Location: 5-staff/dashboard.php");
+          $_SESSION['pending_mfa_user_id'] = $user['staff_id'];
+          $_SESSION['pending_mfa_role'] = $user['staff_role'];
+          $_SESSION['pending_mfa_first_name'] = $user['first_name'];
+          $_SESSION['pending_mfa_last_name'] = $user['last_name'];
+
+          // Check if user already has MFA setup
+          if (empty($user['mfa_secret'])) {
+              header("Location: 3-sessions/mfa_setup.php");
+              exit;
           } else {
-            header("Location: 5-staff/staff.php");
+              header("Location: 3-sessions/mfa_verify.php");
+              exit;
           }
-          exit;
         }
       }
       else {
@@ -95,12 +98,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         select
           pa.patient_id,
           pa.password_hash,
-          pi.first_name
+          pi.first_name,
+          pi.mfa_secret
         from patient_auth pa
         join patient_info pi on pa.patient_id = pi.patient_id
         where pa.username = '$username'
-        and pa.is_active = 1
-        and pi.is_active = 1
+          and pa.is_active = 1
+          and pi.is_active = 1
         limit 1
       ";
 
@@ -114,18 +118,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
 
           // Create patient session
-          $_SESSION['user_id'] = $user['patient_id'];
-          $_SESSION['first_name'] = $user['first_name'];
-          $_SESSION['user_type'] = 'patient';
-          $_SESSION['logged_in'] = true;
+          $_SESSION['pending_mfa_user_id'] = $user['patient_id'];
+          $_SESSION['pending_mfa_role'] = 'patient';
+          $_SESSION['pending_mfa_first_name'] = $user['first_name'];
 
-          header("Location: 4-patient/patient_dashboard.php");
-          exit;
+          if (empty($user['mfa_secret'])) {
+              header("Location: 3-sessions/mfa_setup_patient.php");
+              exit;
+          } else {
+            header("Location: 3-sessions/mfa_verify_patient.php");
+            exit;
         }
       }
-      else {
-        $error = "Invalid credentials.";
-      }
+    }
     }
   }
 }
@@ -138,6 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Clinic System Mockup</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../1-assets/ui.css">
   </head>
   <body
     class="bg-[#8FBFE0] flex items-center justify-center min-h-screen text-gray-800"
@@ -205,5 +211,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         >
       </p>
     </section>
+    <?php include __DIR__ . '/1-assets/chatbot-widget.php' ?>
   </body>
 </html>

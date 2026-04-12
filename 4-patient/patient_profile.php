@@ -209,6 +209,6 @@ function h($v) {
     </section>
 
   </div>
-
+  <?php include __DIR__ . '/../1-assets/chatbot-widget.php' ?>
 </body>
 </html>

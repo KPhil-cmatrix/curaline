@@ -193,6 +193,6 @@ $result = mysqli_query($conn, $sql);
     </section>
 
   </div>
-
+  <?php include __DIR__ . '/../1-assets/chatbot-widget.php' ?>
 </body>
 </html>

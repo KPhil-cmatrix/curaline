@@ -49,6 +49,53 @@ function format_phone($phone) {
   return $phone;
 }
 
+//===========================[ Clinic Save Settings ]===========================\\
+
+if (isset($_POST['save_clinic_settings'])) {
+
+  foreach ($_POST as $key => $value) {
+
+    if ($key === 'save_clinic_settings') continue;
+
+    $key = mysqli_real_escape_string($conn, $key);
+    $value = mysqli_real_escape_string($conn, $value);
+
+    mysqli_query($conn, "
+      INSERT INTO clinic_settings (setting_key, setting_value)
+      VALUES ('$key', '$value')
+      ON DUPLICATE KEY UPDATE setting_value = '$value'
+    ");
+  }
+
+  // reload page to reflect updates
+  header("Location: admin.php?settings_saved=1");
+  exit;
+  }
+
+  function get_setting($conn, $key, $default = null) {
+    $key = mysqli_real_escape_string($conn, $key);
+    $sql = "SELECT setting_value FROM clinic_settings WHERE setting_key = '$key' LIMIT 1";
+    $result = mysqli_query($conn, $sql);
+
+    if ($result && mysqli_num_rows($result) > 0) {
+        $row = mysqli_fetch_assoc($result);
+        return $row['setting_value'];
+    }
+
+    return $default;
+  }
+
+$weekday_open = get_setting($conn, 'weekday_open', '08:00:00');
+$weekday_close = get_setting($conn, 'weekday_close', '17:00:00');
+$saturday_open = get_setting($conn, 'saturday_open', '09:00:00');
+$saturday_close = get_setting($conn, 'saturday_close', '14:00:00');
+$sunday_closed = get_setting($conn, 'sunday_closed', '1');
+$lunch_start = get_setting($conn, 'lunch_start', '12:00:00');
+$lunch_end = get_setting($conn, 'lunch_end', '13:00:00');
+$patient_min_notice_hours = get_setting($conn, 'patient_min_notice_hours', '24');
+$staff_min_notice_hours = get_setting($conn, 'staff_min_notice_hours', '1');
+$max_days_ahead = get_setting($conn, 'max_days_ahead', '90');
+
 //===========================[ STATUS MESSAGES ]===========================\\
 
 $error = null;
@@ -56,7 +103,7 @@ $success = null;
 
 //=====================[ HANDLE CREATE ]=====================\\
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_user'])) {
 
   if (!isset($_POST['type'])) {
     $error = "Invalid form submission.";
@@ -469,6 +516,12 @@ $patient_list_result = mysqli_query($conn, $patient_list_sql);
 
     <main class="flex-1 p-6 space-y-6">
 
+      <?php if (isset($_GET['settings_saved'])): ?>
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded mb-4">
+          Clinic settings updated successfully.
+        </div>
+      <?php endif; ?>
+
       <!------------ CREATE FORM CARD ------------>
 
       <div class="app-card bg-white shadow rounded-xl p-6 w-full max-w-xl">
@@ -484,12 +537,18 @@ $patient_list_result = mysqli_query($conn, $patient_list_sql);
           </div>
         <?php endif; ?>
 
-        <form method="POST" class="space-y-4">
+        <form method="POST" class="space-y-4 w-full">
 
-          <div>
+
+        <!-- Credentials Addition -->
+          <div >
+
+            <h2 class="text-xl font-semibold text-[#2F5395] mb-4">Clinic User Creation</h2>
+            
             <label class="text-sm font-medium text-[#2F5395]">
               What are you adding?
             </label>
+            
             <select name="type" id="typeSelect"
               onchange="toggleForms()"
               class="w-full border rounded-lg p-2">
@@ -731,6 +790,74 @@ $patient_list_result = mysqli_query($conn, $patient_list_sql);
             </tbody>
           </table>
         </div>
+      </div>
+
+      <!-- Clinic Settings -->
+
+      <div class="app-card bg-white shadow rounded-xl p-6 w-full">
+
+        <h2 class="text-xl font-semibold text-[#2F5395] mb-4">Clinic Settings</h2>
+
+        <form method="POST" class="grid md:grid-cols-2 gap-4">
+          <div>
+            <label>Weekday Open</label>
+            <input type="time" name="weekday_open" value="<?= htmlspecialchars($weekday_open) ?>" class="w-full border rounded-lg p-2">
+          </div>
+
+          <div>
+            <label>Weekday Close</label>
+            <input type="time" name="weekday_close" value="<?= htmlspecialchars($weekday_close) ?>" class="w-full border rounded-lg p-2">
+          </div>
+
+          <div>
+            <label>Saturday Open</label>
+            <input type="time" name="saturday_open" value="<?= htmlspecialchars($saturday_open) ?>" class="w-full border rounded-lg p-2">
+          </div>
+
+          <div>
+            <label>Saturday Close</label>
+            <input type="time" name="saturday_close" value="<?= htmlspecialchars($saturday_close) ?>" class="w-full border rounded-lg p-2">
+          </div>
+
+          <div>
+            <label>Lunch Start</label>
+            <input type="time" name="lunch_start" value="<?= htmlspecialchars($lunch_start) ?>" class="w-full border rounded-lg p-2">
+          </div>
+
+          <div>
+            <label>Lunch End</label>
+            <input type="time" name="lunch_end" value="<?= htmlspecialchars($lunch_end) ?>" class="w-full border rounded-lg p-2">
+          </div>
+
+          <div>
+            <label>Patient Minimum Notice (hours)</label>
+            <input type="number" name="patient_min_notice_hours" value="<?= htmlspecialchars($patient_min_notice_hours) ?>" class="w-full border rounded-lg p-2">
+          </div>
+
+          <div>
+            <label>Staff Minimum Notice (hours)</label>
+            <input type="number" name="staff_min_notice_hours" value="<?= htmlspecialchars($staff_min_notice_hours) ?>" class="w-full border rounded-lg p-2">
+          </div>
+
+          <div>
+            <label>Max Days Ahead</label>
+            <input type="number" name="max_days_ahead" value="<?= htmlspecialchars($max_days_ahead) ?>" class="w-full border rounded-lg p-2">
+          </div>
+
+          <div>
+            <label>Sunday Closed</label>
+            <select name="sunday_closed" class="w-full border rounded-lg p-2">
+              <option value="1" <?= $sunday_closed === '1' ? 'selected' : '' ?>>Yes</option>
+              <option value="0" <?= $sunday_closed === '0' ? 'selected' : '' ?>>No</option>
+            </select>
+          </div>
+
+          <div class="md:col-span-2">
+            <button type="submit" name="save_clinic_settings" class="bg-[#2F5395] text-white px-6 py-2 rounded-lg">
+              Save Settings
+            </button>
+          </div>
+        </form>
       </div>
 
     </main>

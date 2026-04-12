@@ -12,11 +12,15 @@ session_start();
 require __DIR__ . '/../3-sessions/auth_patient.php';
 include __DIR__ . '/../2-backend/db.php';
 
+
 $patient_id = $_SESSION['user_id'];
 
 $sql = "
   select
+    a.appointment_id,
     a.scheduled_datetime,
+    a.requested_datetime,
+    a.request_note,
     a.status,
     a.dental_service_type,
     si.first_name as doctor_first_name,
@@ -26,8 +30,33 @@ $sql = "
   where a.patient_id = '$patient_id'
   order by a.scheduled_datetime desc
 ";
-
 $result = mysqli_query($conn, $sql);
+
+
+//=====================[ APPOINTMENT RESTRICTIONS LOADER ]=====================\\
+
+function get_setting($conn, $key, $default = null) {
+    $key = mysqli_real_escape_string($conn, $key);
+    $sql = "SELECT setting_value FROM clinic_settings WHERE setting_key = '$key' LIMIT 1";
+    $result = mysqli_query($conn, $sql);
+
+    if ($result && mysqli_num_rows($result) > 0) {
+        $row = mysqli_fetch_assoc($result);
+        return $row['setting_value'];
+    }
+
+    return $default;
+}
+
+$weekday_open = get_setting($conn, 'weekday_open', '08:00:00');
+$weekday_close = get_setting($conn, 'weekday_close', '17:00:00');
+$saturday_open = get_setting($conn, 'saturday_open', '09:00:00');
+$saturday_close = get_setting($conn, 'saturday_close', '14:00:00');
+$sunday_closed = get_setting($conn, 'sunday_closed', '1');
+$lunch_start = get_setting($conn, 'lunch_start', '12:00:00');
+$lunch_end = get_setting($conn, 'lunch_end', '13:00:00');
+$patient_min_notice_hours = (int) get_setting($conn, 'patient_min_notice_hours', '24');
+$max_days_ahead = (int) get_setting($conn, 'max_days_ahead', '90');
 
 //=====================[ APPOINTMENT REQUEST HANDLER ]=====================\\
 
@@ -49,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_appointment']
   }
   else {
 
-    //=====================[ DOUBLE BOOKING CHECK ]=====================\\
+    //=====================[ BOOKING RESTRICTION CHECKS ]=====================\\
 
     $check_sql = "
       select appointment_id
@@ -60,49 +89,109 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_appointment']
       limit 1
     ";
 
+    $appointment_ts = strtotime($scheduled_datetime);
+    $time_only = date('H:i:s', $appointment_ts);
+    $day_of_week = date('N', $appointment_ts); // 1=Mon ... 7=Sun
+
+    if ($appointment_ts === false) {
+        $request_error = "Invalid appointment date and time.";
+    }
+
+    if (!$request_error && $appointment_ts <= time()) {
+        $request_error = "Appointments cannot be booked in the past.";
+    }
+
+    if (!$request_error && $appointment_ts < strtotime("+{$patient_min_notice_hours} hours")) {
+        $request_error = "Appointments must be booked at least {$patient_min_notice_hours} hours in advance.";
+    }
+
+    if (!$request_error && $appointment_ts > strtotime("+{$max_days_ahead} days")) {
+        $request_error = "Appointments cannot be booked more than {$max_days_ahead} days in advance.";
+    }
+
+    if (!$request_error && $day_of_week == 7 && $sunday_closed === '1') {
+        $request_error = "The clinic is closed on Sundays.";
+    }
+
+    if (!$request_error) {
+        if ($day_of_week >= 1 && $day_of_week <= 5) {
+            if ($time_only < $weekday_open || $time_only >= $weekday_close) {
+                $request_error = "Appointments must be within weekday clinic hours.";
+            }
+        } elseif ($day_of_week == 6) {
+            if ($time_only < $saturday_open || $time_only >= $saturday_close) {
+                $request_error = "Appointments must be within Saturday clinic hours.";
+            }
+        }
+    }
+
+    if (!$request_error && $time_only >= $lunch_start && $time_only < $lunch_end) {
+        $request_error = "Appointments cannot be booked during the clinic lunch break.";
+    }
+
+    //=====================[ DENTIST DOUBLE BOOKING ]=====================\\
+
+if (!$request_error) {
+
     $check_result = mysqli_query($conn, $check_sql);
 
     if ($check_result && mysqli_num_rows($check_result) > 0) {
-
-      $request_error = "Selected time slot is already booked.";
-
+        $request_error = "Selected time slot is already booked.";
     }
-    else {
+}
 
-      //=====================[ CREATE REQUEST ]=====================\\
+//=====================[ PATIENT DOUBLE BOOKING ]=====================\\
 
-      $insert_sql = "
-        insert into appointments
-        (
-          patient_id,
-          dentist_id,
-          booked_by_staff_id,
-          scheduled_datetime,
-          dental_service_type,
-          status
-        )
-        values
-        (
-          '$patient_id',
-          '$dentist_id',
-          NULL,
-          '$scheduled_datetime',
-          '$service',
-          'Pending'
-        )
-      ";
+if (!$request_error) {
 
-      if (mysqli_query($conn, $insert_sql)) {
-        $request_success = "Appointment request submitted. Waiting for staff approval.";
-      }
-      else {
-        $request_error = "Failed to submit request: " . mysqli_error($conn);
-      }
+    $patient_check_sql = "
+        select appointment_id
+        from appointments
+        where patient_id = '$patient_id'
+        and scheduled_datetime = '$scheduled_datetime'
+        and status in ('Pending','Scheduled')
+        limit 1
+    ";
 
+    $patient_check_result = mysqli_query($conn, $patient_check_sql);
+
+    if ($patient_check_result && mysqli_num_rows($patient_check_result) > 0) {
+        $request_error = "You already have an appointment at this time.";
     }
 
+    //=====================[ CREATE REQUEST ]=====================\\
+
+    if (!$request_error) {
+
+        $insert_sql = "
+          insert into appointments
+          (
+            patient_id,
+            dentist_id,
+            booked_by_staff_id,
+            scheduled_datetime,
+            dental_service_type,
+            status
+          )
+          values
+          (
+            '$patient_id',
+            '$dentist_id',
+            NULL,
+            '$scheduled_datetime',
+            '$service',
+            'Pending'
+          )
+        ";
+
+        if (mysqli_query($conn, $insert_sql)) {
+            $request_success = "Appointment request submitted. Waiting for staff approval.";
+        } else {
+            $request_error = "Failed to submit request: " . mysqli_error($conn);
+        }
+      }
+    }
   }
-
 }
 
 ?>
@@ -215,24 +304,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_appointment']
           </div>
         <?php endif; ?>
 
+        <?php
+          $dentists_query = "SELECT staff_id, first_name, last_name FROM staff_info WHERE staff_role = 'Dentist'";
+          $dentists_result = mysqli_query($conn, $dentists_query);
+        ?>
+
         <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
           <div>
             <label class="block text-sm text-gray-600 mb-2">Dentist</label>
-            <select
-              name="dentist_id"
-              required
-              class="w-full border border-[#8FBFE0] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#3EDCDE]"
-            >
+            <select name="dentist_id" required
+              class="w-full border border-[#8FBFE0] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#3EDCDE]">
+
               <option value="">Select Dentist</option>
 
-              <?php if ($dentists_result && mysqli_num_rows($dentists_result) > 0): ?>
-                <?php while ($dentist = mysqli_fetch_assoc($dentists_result)): ?>
-                  <option value="<?= $dentist['staff_id'] ?>">
-                    <?= $dentist['staff_id'] ?> - <?= $dentist['first_name'] ?> <?= $dentist['last_name'] ?>
-                  </option>
-                <?php endwhile; ?>
-              <?php endif; ?>
+              <?php while ($dentist = mysqli_fetch_assoc($dentists_result)): ?>
+                <option value="<?= $dentist['staff_id'] ?>">
+                  <?= $dentist['staff_id'] ?> - <?= $dentist['first_name'] ?> <?= $dentist['last_name'] ?>
+                </option>
+              <?php endwhile; ?>
+
             </select>
           </div>
 
@@ -282,36 +373,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_appointment']
               <th class="py-3">Doctor</th>
               <th class="py-3">Service</th>
               <th class="py-3">Status</th>
+              <th class="py-3">Actions</th>
             </tr>
           </thead>
 
           <tbody>
             <?php while ($row = mysqli_fetch_assoc($result)): ?>
-              <tr class="border-b hover:bg-[#F8FBFF]">
+              <tr>
+                <td class="p-3 border-b border-[#E0E3E7]">
+                  <?= $row['scheduled_datetime'] ?>
+                </td>
 
-                <td class="py-3"><?= $row['scheduled_datetime'] ?></td>
-
-                <td class="py-3">
+                <td class="p-3 border-b border-[#E0E3E7]">
                   <?= $row['doctor_first_name'] ?> <?= $row['doctor_last_name'] ?>
                 </td>
 
-                <td class="py-3"><?= $row['dental_service_type'] ?></td>
-
-                <td class="py-3">
-                  <?php
-                    $status = strtolower($row['status']);
-                    $style = "bg-gray-100 text-gray-600";
-
-                    if ($status === "pending") $style = "bg-yellow-100 text-yellow-700";
-                    if ($status === "scheduled") $style = "bg-green-100 text-green-700";
-                    if ($status === "completed") $style = "bg-blue-100 text-blue-700";
-                    if ($status === "declined") $style = "bg-red-100 text-red-700";
-                  ?>
-                  <span class="px-3 py-1 rounded-full text-xs font-medium <?= $style ?>">
-                    <?= ucfirst($row['status']) ?>
-                  </span>
+                <td class="p-3 border-b border-[#E0E3E7]">
+                  <?= $row['dental_service_type'] ?>
                 </td>
 
+                <td class="p-3 border-b border-[#E0E3E7]">
+                  <?= $row['status'] ?>
+
+                  <?php if ($row['status'] === 'Reschedule Requested' && !empty($row['requested_datetime'])): ?>
+                    <p class="text-xs text-gray-400 mt-1">
+                      Requested: <?= $row['requested_datetime'] ?>
+                    </p>
+                  <?php endif; ?>
+                </td>
+
+                <td class="p-3 border-b border-[#E0E3E7]">
+                  <?php if (in_array($row['status'], ['Pending', 'Scheduled'])): ?>
+                    <a
+                      href="request_reschedule.php?appointment_id=<?= $row['appointment_id'] ?>"
+                      class="px-4 py-2 rounded-lg text-blue-600 hover:underline font-medium"                      
+                    >
+                      Request Reschedule
+                    </a>
+                  <?php else: ?>
+                    <span class="text-sm text-gray-400">N/A</span>
+                  <?php endif; ?>
+                </td>
               </tr>
             <?php endwhile; ?>
           </tbody>
@@ -320,6 +422,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_appointment']
       </section>
 
     </div>
-
+    <?php include __DIR__ . '/../1-assets/chatbot-widget.php' ?>
   </body>
 </html>

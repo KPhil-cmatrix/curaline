@@ -34,6 +34,31 @@ $app_count_sql = "select count(*) as total from appointments";
 $app_count_result = mysqli_query($conn, $app_count_sql);
 $app_count_total = mysqli_fetch_assoc($app_count_result)['total'];
 
+// We get the SQL Querries for each item
+
+// Pending Count
+$pending_query = "SELECT COUNT(*) AS total FROM appointments WHERE status = 'Pending'";
+$pending_result = mysqli_query($conn, $pending_query);
+$pending_count = mysqli_fetch_assoc($pending_result)['total'] ?? 0;
+
+// Completed Count
+$completed_query = "SELECT COUNT(*) AS total FROM appointments WHERE status = 'Completed'";
+$completed_result = mysqli_query($conn, $completed_query);
+$completed_count = mysqli_fetch_assoc($completed_result)['total'] ?? 0;
+
+// Top Service
+$service_query = "
+  SELECT dental_service_type, COUNT(*) AS total
+  FROM appointments
+  GROUP BY dental_service_type
+  ORDER BY total DESC
+  LIMIT 1
+";
+$service_result = mysqli_query($conn, $service_query);
+$service_row = mysqli_fetch_assoc($service_result);
+
+$top_service = $service_row['dental_service_type'] ?? 'N/A';
+
 ?>
 
 <!DOCTYPE html>
@@ -168,7 +193,7 @@ $app_count_total = mysqli_fetch_assoc($app_count_result)['total'];
       </header>
 
       <!-- Page content -->
-      <main class="p-6 flex-1">
+      <main class="p-6 flex-1 space-y-6">
         <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           
           <!-- Patients -->
@@ -219,8 +244,59 @@ $app_count_total = mysqli_fetch_assoc($app_count_result)['total'];
                 </svg>
               </div>
             </div>
+
           </div>
 
+          <!-- PENDING REQUESTS -->
+          <div class="app-card p-6 flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">Pending Requests</p>
+              <p class="text-3xl font-bold text-[#2F5395] mt-2"><?= $pending_count ?></p>
+              <p class="text-xs text-gray-400 mt-2">Awaiting staff review</p>
+            </div>
+
+            <div class="w-12 h-12 bg-[#3EDCDE]/20 rounded-full flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-[#2F5395]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4l3 3M12 2a10 10 0 100 20 10 10 0 000-20z" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- COMPLETED APPOINTMENTS -->
+          <div class="app-card p-6 flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">Completed Appointments</p>
+              <p class="text-3xl font-bold text-[#2F5395] mt-2"><?= $completed_count ?></p>
+              <p class="text-xs text-gray-400 mt-2">Finished successfully</p>
+            </div>
+
+            <div class="w-12 h-12 bg-[#3EDCDE]/20 rounded-full flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-[#2F5395]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Top Service -->
+
+          <div class="app-card p-6 flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">Top Service</p>
+              <p class="text-2xl font-bold text-[#2F5395] mt-2"><?= htmlspecialchars($top_service) ?></p>
+              <p class="text-xs text-gray-400 mt-2">Most requested by patients</p>
+            </div>
+
+            <div class="w-12 h-12 bg-[#3EDCDE]/20 rounded-full flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-[#2F5395]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l2.036 6.26h6.586c.969 0 1.371 1.24.588 1.81l-5.33 3.874 2.036 6.26c.3.921-.755 1.688-1.54 1.118L12 18.347l-5.327 3.902c-.785.57-1.84-.197-1.54-1.118l2.036-6.26-5.33-3.874c-.783-.57-.38-1.81.588-1.81h6.586l2.036-6.26z" />
+              </svg>
+            </div>
+          </div>
+
+        <!-- End of Analytics Cards -->
         </div>
       </main>
     </div>

@@ -11,6 +11,73 @@
 // We block access if the user is not logged in and require general staff perms
 require __DIR__ . '/../3-sessions/auth_staff.php';
 include __DIR__ . '/../2-backend/db.php';
+
+
+// ===========================[ ACTION HANDLING ]=========================== \\
+
+if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
+
+  $action = $_GET['action'];
+  $appointment_id = mysqli_real_escape_string($conn, $_GET['appointment_id']);
+
+  // ================= APPROVE NORMAL =================
+  if ($action === 'approve') {
+    mysqli_query($conn, "
+      UPDATE appointments
+      SET status = 'Scheduled'
+      WHERE appointment_id = '$appointment_id'
+    ");
+
+    header("Location: appointments.php");
+    exit;
+  }
+
+  // ================= DECLINE NORMAL =================
+  if ($action === 'decline') {
+    mysqli_query($conn, "
+      UPDATE appointments
+      SET status = 'Cancelled'
+      WHERE appointment_id = '$appointment_id'
+    ");
+
+    header("Location: appointments.php");
+    exit;
+  }
+
+  // ================= APPROVE RESCHEDULE =================
+  if ($action === 'approve_reschedule') {
+    mysqli_query($conn, "
+      UPDATE appointments
+      SET
+        scheduled_datetime = requested_datetime,
+        requested_datetime = NULL,
+        request_note = NULL,
+        status = 'Scheduled'
+      WHERE appointment_id = '$appointment_id'
+        AND status = 'Reschedule Requested'
+    ");
+
+    header("Location: appointments.php");
+    exit;
+  }
+
+  // ================= DECLINE RESCHEDULE =================
+  if ($action === 'decline_reschedule') {
+    mysqli_query($conn, "
+      UPDATE appointments
+      SET
+        requested_datetime = NULL,
+        request_note = NULL,
+        status = 'Scheduled'
+      WHERE appointment_id = '$appointment_id'
+        AND status = 'Reschedule Requested'
+    ");
+
+    header("Location: appointments.php");
+    exit;
+  }
+}
+
 //===========================[ VALIDATION HELPERS ]===========================\\
 
 function clean_post($conn, $key) {
@@ -22,6 +89,31 @@ function clean_post($conn, $key) {
 
 $error = null;
 $success = null;
+
+//===========================[ CLININC SETTINGS SET UP ]===========================\\
+
+function get_setting($conn, $key, $default = null) {
+    $key = mysqli_real_escape_string($conn, $key);
+    $sql = "SELECT setting_value FROM clinic_settings WHERE setting_key = '$key' LIMIT 1";
+    $result = mysqli_query($conn, $sql);
+
+    if ($result && mysqli_num_rows($result) > 0) {
+        $row = mysqli_fetch_assoc($result);
+        return $row['setting_value'];
+    }
+
+    return $default;
+}
+
+$weekday_open = get_setting($conn, 'weekday_open', '08:00:00');
+$weekday_close = get_setting($conn, 'weekday_close', '17:00:00');
+$saturday_open = get_setting($conn, 'saturday_open', '09:00:00');
+$saturday_close = get_setting($conn, 'saturday_close', '14:00:00');
+$sunday_closed = get_setting($conn, 'sunday_closed', '1');
+$lunch_start = get_setting($conn, 'lunch_start', '12:00:00');
+$lunch_end = get_setting($conn, 'lunch_end', '13:00:00');
+$staff_min_notice_hours = (int) get_setting($conn, 'staff_min_notice_hours', '1');
+$max_days_ahead = (int) get_setting($conn, 'max_days_ahead', '90');
 
 //===========================[ POST DATA SECTION ]===========================\\
 
@@ -76,14 +168,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
 
 
-      // Combine date + time into one datetime value
       $datetime = date("Y-m-d H:i:s", strtotime($appointment_datetime));
 
-      // We do a check to ensure time submitted is valid for appointments
-      $minAllowedTime = strtotime("+1 hour");
+      $appointment_ts = strtotime($datetime);
+      $time_only = date('H:i:s', $appointment_ts);
+      $day_of_week = date('N', $appointment_ts);
 
-      if (strtotime($datetime) < $minAllowedTime) {
-        $error = "Appointments must be scheduled at least 1 hour from now.";
+      // ======================[ CLINIC VALIDATION ]====================== \\
+
+      if ($appointment_ts === false) {
+        $error = "Invalid appointment date and time.";
+      }
+
+      if (!$error && $appointment_ts <= time()) {
+        $error = "Appointments cannot be booked in the past.";
+      }
+
+      if (!$error && $appointment_ts < strtotime("+{$staff_min_notice_hours} hours")) {
+        $error = "Appointments must be scheduled at least {$staff_min_notice_hours} hour(s) in advance.";
+      }
+
+      if (!$error && $appointment_ts > strtotime("+{$max_days_ahead} days")) {
+        $error = "Appointments cannot be booked more than {$max_days_ahead} days in advance.";
+      }
+
+      if (!$error && $day_of_week == 7 && $sunday_closed === '1') {
+        $error = "The clinic is closed on Sundays.";
+      }
+
+      if (!$error) {
+        if ($day_of_week >= 1 && $day_of_week <= 5) {
+          if ($time_only < $weekday_open || $time_only >= $weekday_close) {
+            $error = "Appointments must be within weekday clinic hours.";
+          }
+        } elseif ($day_of_week == 6) {
+          if ($time_only < $saturday_open || $time_only >= $saturday_close) {
+            $error = "Appointments must be within Saturday clinic hours.";
+          }
+        }
+      }
+
+      if (!$error && $time_only >= $lunch_start && $time_only < $lunch_end) {
+        $error = "Appointments cannot be booked during the clinic lunch break.";
       }
 
       // Now we do a little check for the availability of a time slot, ensuring for a dentist id and  a datetime
@@ -105,12 +231,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       // If it returns a value then its found an appointment that's still pending with a doctor that is on call \\
       // Dentists off call cannot have appointment so there's no need to validate that \\
 
-      if ($check_data['total'] > 0) {
+      if (!$error && $check_data['total'] > 0) {
         $error = "This doctor already has an appointment at that time.";
+      }
+
+      // Patient double-booking check
+      if (!$error) {
+        $patient_time_check_sql = "
+          SELECT COUNT(*) AS total
+          FROM appointments
+          WHERE patient_id = '$patient'
+            AND scheduled_datetime = '$datetime'
+            AND status NOT IN ('Cancelled', 'Missed', 'Declined')
+        ";
+
+        $patient_check_result = mysqli_query($conn, $patient_time_check_sql);
+        $patient_check_data = mysqli_fetch_assoc($patient_check_result);
+
+        if ($patient_check_data['total'] > 0) {
+          $error = "This patient already has an appointment at that time.";
+        }
+      }
+
+      // Insert only if still no errors
+      if (!$error) {
+
+        $sql = "INSERT INTO appointments
+                (patient_id, dentist_id, booked_by_staff_id, scheduled_datetime, status, dental_service_type, booking_channel)
+                VALUES ('$patient', '$doctor', '$staff', '$datetime', 'Scheduled', 'General', 'Admin')";
+
+        if (mysqli_query($conn, $sql)) {
+            $success = "Appointment booked successfully.";
+        } else {
+            $error = "Database error: " . mysqli_error($conn);
+        }
+
       }
       // If $error is declared and not == null then we proceed with the rest
 
-      if (!isset($error)) {
+      if (!$error) {
 
         $sql = "INSERT INTO appointments
                 (patient_id, dentist_id, booked_by_staff_id, scheduled_datetime, status, dental_service_type, booking_channel)
@@ -141,14 +300,6 @@ from staff_info
 where staff_role = 'Receptionist'
 and is_active = 1";
 
-/*
-SQL is processed in order of "operators", things like FROM and JOIN happen before SELECT
-
-FROM appointments runs before JOIN;
-Here's the true order:
-
-FROM -> Join -> WHERE -> GROUP BY -> SELECT -> ORDER BY
-*/
 
 $scheduled_appointments_sql = "
 SELECT 
@@ -168,19 +319,21 @@ ORDER BY a.scheduled_datetime DESC
 ";
 
 $pending_appointments_sql = "
-SELECT 
-  a.appointment_id,
-  a.scheduled_datetime,
-  a.status,
-  a.dental_service_type,
-  d.first_name AS doctor_first,
-  d.last_name  AS doctor_last,
-  p.first_name AS patient_first,
-  p.last_name  AS patient_last
+SELECT
+    a.appointment_id,
+    a.scheduled_datetime,
+    a.requested_datetime,
+    a.request_note,
+    a.status,
+    a.dental_service_type,
+    d.first_name AS doctor_first,
+    d.last_name AS doctor_last,
+    p.first_name AS patient_first,
+    p.last_name AS patient_last
 FROM appointments a
 JOIN staff_info d ON a.dentist_id = d.staff_id
 JOIN patient_info p ON a.patient_id = p.patient_id
-WHERE a.status = 'Pending'
+WHERE a.status in ('Pending','Reschedule Requested')
 ORDER BY a.scheduled_datetime DESC
 ";
 
@@ -292,8 +445,9 @@ if (!$patients_result) {
 
         <!--CODE BORDER-->
         <div>
-          <h1 class="text-2x1 font-bold text-[#2f5385]">Patients</h1>
+          <h1 class="text-2x1 font-bold text-[#2f5385]">Appointments</h1>
           <p class="text-sm text-gray-500 mt-1">
+            Create and manage appointments within the clinic
           </p>
         </div>
         <!--CODE BORDER-->
@@ -434,36 +588,68 @@ if (!$patients_result) {
 
                 <!--------- Here we populate the table with the appointment infromation --------->
               <?php while ($row = mysqli_fetch_assoc($pending_appointments_result)) { ?>
-                <tr class="border-b">
-                  <td>
+                <tr class="border-b align-top">
+                  <td class="py-3 pr-6">
                     <?php echo $row['doctor_first'] . " " . $row['doctor_last']; ?>
                   </td>
-                  <td>
+
+                  <td class="py-3 pr-6">
                     <?php echo $row['patient_first'] . " " . $row['patient_last']; ?>
                   </td>
-                  <td>
-                    <?php echo $row['scheduled_datetime']; ?>
-                  </td>
-                  <td>
-                    <?php echo $row['status']?>
-                  </td>
-                 <td>
-                  <div class="flex gap-2">
-                    <a
-                      href="edit_appointment.php?appointment_id=<?php echo $row['appointment_id']; ?>&action=approve"
-                      class="px-3 py-1 bg-[#3EDCDE] text-[#2F5395] rounded text-sm hover:opacity-90"
-                    >
-                      Approve
-                    </a>
 
-                    <a
-                      href="edit_appointment.php?appointment_id=<?php echo $row['appointment_id']; ?>&action=decline"
-                      class="px-3 py-1 bg-[#9FA2B2] text-white rounded text-sm hover:opacity-90"
-                    >
-                      Decline
-                    </a>
-                  </div>
-                </td>
+                  <td class="py-3 pr-6 min-w-[220px]">
+                    <?php echo $row['scheduled_datetime']; ?>
+
+                    <?php if ($row['status'] === 'Reschedule Requested' && !empty($row['requested_datetime'])): ?>
+                      <p class="text-xs text-gray-400 mt-1">
+                        Requested: <?php echo $row['requested_datetime']; ?>
+                      </p>
+                    <?php endif; ?>
+                  </td>
+
+                  <td class="py-3 pr-6 min-w-[180px]">
+                    <?php if ($row['status'] === 'Reschedule Requested'): ?>
+                      <span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded text-sm">
+                        Reschedule Requested
+                      </span>
+                    <?php else: ?>
+                      <?php echo $row['status']; ?>
+                    <?php endif; ?>
+                  </td>
+
+                  <td class="py-3 min-w-[180px]">
+                    <div class="flex gap-2 flex-wrap">
+                      <?php if ($row['status'] === 'Reschedule Requested'): ?>
+                        <a
+                          href="edit_appointment.php?appointment_id=<?php echo $row['appointment_id']; ?>&action=approve_reschedule"
+                          class="px-3 py-1 bg-[#3EDCDE] text-[#2F5395] rounded text-sm hover:opacity-90"
+                        >
+                          Approve
+                        </a>
+
+                        <a
+                          href="edit_appointment.php?appointment_id=<?php echo $row['appointment_id']; ?>&action=decline_reschedule"
+                          class="px-3 py-1 bg-[#9FA2B2] text-white rounded text-sm hover:opacity-90"
+                        >
+                          Decline
+                        </a>
+                      <?php else: ?>
+                        <a
+                          href="edit_appointment.php?appointment_id=<?php echo $row['appointment_id']; ?>&action=approve"
+                          class="px-3 py-1 bg-[#3EDCDE] text-[#2F5395] rounded text-sm hover:opacity-90"
+                        >
+                          Approve
+                        </a>
+
+                        <a
+                          href="edit_appointment.php?appointment_id=<?php echo $row['appointment_id']; ?>&action=decline"
+                          class="px-3 py-1 bg-[#9FA2B2] text-white rounded text-sm hover:opacity-90"
+                        >
+                          Decline
+                        </a>
+                      <?php endif; ?>
+                    </div>
+                  </td>
                 </tr>
               <?php } ?>
             </tbody>

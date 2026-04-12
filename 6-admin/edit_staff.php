@@ -102,6 +102,18 @@ if (isset($_POST['deactivate_staff'])) {
   exit;
 }
 
+//===========================[ HANDLE RESETN MFA ]===========================\\
+
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_mfa'])) {
+    $stmt = $conn->prepare("UPDATE staff_info SET mfa_secret = NULL, mfa_enabled = 0 WHERE staff_id = ?");
+    $stmt->bind_param("s", $staff_id);
+    $stmt->execute();
+
+    header("Location: edit_staff.php?staff_id=" . urlencode($staff_id) . "&mfa_reset=1");
+    exit;
+}
+
 //===========================[ HANDLE SAVE ]===========================\\
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_staff'])) {
@@ -286,6 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_staff'])) {
     }
   }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -411,6 +424,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_staff'])) {
         <?php if ($success): ?>
           <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded mb-4">
             <?= $success ?>
+          </div>
+        <?php endif; ?>
+
+        <?php if (isset($_GET['mfa_reset'])): ?>
+          <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded mb-4">
+            MFA has been reset successfully.
           </div>
         <?php endif; ?>
 
@@ -562,6 +581,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_staff'])) {
               >
                 Back
               </a>
+
+              <button
+                type="submit"
+                name="reset_mfa"
+                onclick="return confirm('Reset MFA for this staff member? They will need to set it up again on next login.');"
+                class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-all duration-200">
+                Reset MFA
+            </button>
+
             </div>
 
           </form>

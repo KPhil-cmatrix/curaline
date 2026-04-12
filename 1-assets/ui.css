@@ -9,3 +9,8 @@
   transform: translateY(-3px);
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
 }
+
+#anythingllm-chat-widget-container {
+  width: auto !important;
+  height: auto !important;
+}
