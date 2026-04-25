@@ -9,8 +9,18 @@
 */
 
 session_start();
+
+//=====================[ ACCESS CONTROL ]=====================\\
+
 require __DIR__ . '/../3-sessions/auth_patient.php';
+
+//=====================[ DATABASE ACCESS ]=====================\\
+
 include __DIR__ . '/../2-backend/db.php';
+
+//=====================[ Notifications ]=====================\\
+
+require __DIR__ . '/../2-backend/notifications.php';
 
 
 $patient_id = $_SESSION['user_id'];
@@ -22,7 +32,10 @@ $sql = "
     a.requested_datetime,
     a.request_note,
     a.status,
+    a.cancel_requested,
     a.dental_service_type,
+    a.appointment_outcome_note,
+    a.recommendations_medication,
     si.first_name as doctor_first_name,
     si.last_name as doctor_last_name
   from appointments a
@@ -62,6 +75,10 @@ $max_days_ahead = (int) get_setting($conn, 'max_days_ahead', '90');
 
 $request_error = null;
 $request_success = null;
+
+if (isset($_GET['requested'])) {
+    $request_success = "Appointment request submitted. Waiting for staff approval.";
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_appointment'])) {
 
@@ -185,7 +202,8 @@ if (!$request_error) {
         ";
 
         if (mysqli_query($conn, $insert_sql)) {
-            $request_success = "Appointment request submitted. Waiting for staff approval.";
+          header("Location: patient_appointments.php?requested=1");
+          exit;
         } else {
             $request_error = "Failed to submit request: " . mysqli_error($conn);
         }
@@ -208,7 +226,7 @@ if (!$request_error) {
   <body class="flex min-h-screen bg-gradient-to-br from-[#EEF3FA] to-[#C9D8F0] text-gray-800">
 
     <!-- SIDEBAR -->
-    <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl">
+    <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl sticky top-0 h-screen">
 
       <!-- Logo -->
       <div class="px-6 py-6 border-b border-white/10 flex items-center justify-center">
@@ -252,6 +270,21 @@ if (!$request_error) {
 
       <!-- Bottom -->
       <div class="p-4 border-t border-white/10 space-y-3 mt-auto">
+
+      <!--------------------------- Notifications --------------------------->
+      <div class="px-4 mt-4">
+        <button onclick="toggleNotifications()" class="w-full text-left bg-white/20 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
+          <span>🔔 Notifications</span>
+          <span id="notif-count" class="hidden bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">0</span>
+        </button>
+
+        <div id="notif-box" class="mt-2 bg-white text-black rounded-lg p-3 max-h-60 overflow-y-auto shadow-lg">
+          <div id="notifications-container">
+            <p class="text-gray-400 text-sm">Loading...</p>
+          </div>
+        </div>
+      </div>
+
         <div class="flex items-center gap-3 px-2">
           <div class="w-10 h-10 rounded-full bg-[#3EDCDE] flex items-center justify-center font-bold text-white shrink-0">
             <?= strtoupper(substr($_SESSION['first_name'], 0, 1)) ?>
@@ -378,44 +411,103 @@ if (!$request_error) {
           </thead>
 
           <tbody>
-            <?php while ($row = mysqli_fetch_assoc($result)): ?>
-              <tr>
-                <td class="p-3 border-b border-[#E0E3E7]">
-                  <?= $row['scheduled_datetime'] ?>
-                </td>
+          
+          <?php while ($row = mysqli_fetch_assoc($result)): ?>
+            <?php
+              $has_pending_request = (
+                $row['status'] === 'Reschedule Requested' ||
+                !empty($row['cancel_requested'])
+              );
+            ?>
+            <tr>
+              <!-- Date -->
+              <td class="p-3 border-b border-[#E0E3E7]">
+                <?= htmlspecialchars($row['scheduled_datetime']) ?>
+              </td>
 
-                <td class="p-3 border-b border-[#E0E3E7]">
-                  <?= $row['doctor_first_name'] ?> <?= $row['doctor_last_name'] ?>
-                </td>
+              <!-- Doctor -->
+              <td class="p-3 border-b border-[#E0E3E7]">
+                <?= htmlspecialchars($row['doctor_first_name']) ?> <?= htmlspecialchars($row['doctor_last_name']) ?>
+              </td>
 
-                <td class="p-3 border-b border-[#E0E3E7]">
-                  <?= $row['dental_service_type'] ?>
-                </td>
+              <!-- Service -->
+              <td class="p-3 border-b border-[#E0E3E7]">
+                <?= htmlspecialchars($row['dental_service_type']) ?>
+              </td>
 
-                <td class="p-3 border-b border-[#E0E3E7]">
-                  <?= $row['status'] ?>
+              <!-- Status + Notes -->
+              <td class="p-3 border-b border-[#E0E3E7] align-top">
+                <?php
+                  $status = strtolower($row['status']);
+                  $status_class = 'bg-gray-100 text-gray-600';
 
-                  <?php if ($row['status'] === 'Reschedule Requested' && !empty($row['requested_datetime'])): ?>
-                    <p class="text-xs text-gray-400 mt-1">
-                      Requested: <?= $row['requested_datetime'] ?>
-                    </p>
+                  if ($status === 'scheduled') {
+                    $status_class = 'bg-green-100 text-green-700';
+                  } elseif ($status === 'pending') {
+                    $status_class = 'bg-yellow-100 text-yellow-700';
+                  } elseif ($status === 'cancelled' || $status === 'declined') {
+                    $status_class = 'bg-red-100 text-red-700';
+                  } elseif ($status === 'completed') {
+                    $status_class = 'bg-blue-100 text-blue-700';
+                  } elseif ($status === 'reschedule requested') {
+                    $status_class = 'bg-yellow-100 text-yellow-700';
+                  }
+                ?>
+
+                <!-- Status Badge -->
+                <span class="px-3 py-1 rounded-full text-xs font-medium <?= $status_class ?>">
+                  <?= htmlspecialchars($row['status']) ?>
+                </span>
+
+                <!-- Requested Time -->
+                <?php if ($row['status'] === 'Reschedule Requested' && !empty($row['requested_datetime'])): ?>
+                  <p class="text-xs text-gray-400 mt-2">
+                    Requested: <?= htmlspecialchars($row['requested_datetime']) ?>
+                  </p>
+                <?php endif; ?>
+
+                <!-- Notes (only for completed) -->
+                <?php if ($row['status'] === 'Completed'): ?>
+
+                  <?php if (!empty($row['appointment_outcome_note'])): ?>
+                    <div class="mt-2 text-xs text-gray-600">
+                      <span class="font-semibold text-[#2F5395]">Outcome:</span><br>
+                      <?= nl2br(htmlspecialchars($row['appointment_outcome_note'])) ?>
+                    </div>
                   <?php endif; ?>
-                </td>
 
-                <td class="p-3 border-b border-[#E0E3E7]">
-                  <?php if (in_array($row['status'], ['Pending', 'Scheduled'])): ?>
-                    <a
-                      href="request_reschedule.php?appointment_id=<?= $row['appointment_id'] ?>"
-                      class="px-4 py-2 rounded-lg text-blue-600 hover:underline font-medium"                      
-                    >
-                      Request Reschedule
-                    </a>
-                  <?php else: ?>
-                    <span class="text-sm text-gray-400">N/A</span>
+                  <?php if (!empty($row['recommendations_medication'])): ?>
+                    <div class="mt-2 text-xs text-gray-600">
+                      <span class="font-semibold text-[#2F5395]">Recommendations / Medication:</span><br>
+                      <?= nl2br(htmlspecialchars($row['recommendations_medication'])) ?>
+                    </div>
                   <?php endif; ?>
-                </td>
-              </tr>
-            <?php endwhile; ?>
+
+                <?php endif; ?>
+
+              </td>
+
+              <!-- Actions -->
+              <td class="p-3 border-b border-[#E0E3E7]">
+                <?php if ($row['status'] === 'Scheduled' && !$has_pending_request): ?>
+                  <a
+                    href="request_reschedule.php?appointment_id=<?= urlencode($row['appointment_id']) ?>"
+                    class="text-blue-600 hover:underline"
+                  >
+                    Request Reschedule
+                  </a>
+
+                <?php elseif ($has_pending_request): ?>
+                  <span class="text-gray-400 text-sm">Request Pending</span>
+
+                <?php else: ?>
+                  <span class="text-gray-400">N/A</span>
+                <?php endif; ?>
+              </td>
+
+            </tr>
+          <?php endwhile; ?>
+
           </tbody>
         </table>
 
@@ -423,5 +515,6 @@ if (!$request_error) {
 
     </div>
     <?php include __DIR__ . '/../1-assets/chatbot-widget.php' ?>
+    <script src="../1-assets/js/notifications.js"></script>
   </body>
 </html>

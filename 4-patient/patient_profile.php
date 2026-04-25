@@ -9,8 +9,19 @@
 */
 
 session_start();
+
+//=====================[ ACCESS CONTROL ]=====================\\
+
 require __DIR__ . '/../3-sessions/auth_patient.php';
+
+//=====================[ DATABASE ACCESS ]=====================\\
+
 include __DIR__ . '/../2-backend/db.php';
+
+//=====================[ Notifications ]=====================\\
+
+require __DIR__ . '/../2-backend/notifications.php';
+
 
 $patient_id = $_SESSION['user_id'];
 
@@ -56,7 +67,7 @@ function h($v) {
 <body class="flex min-h-screen bg-gradient-to-br from-[#EEF3FA] to-[#C9D8F0] text-gray-800">
 
   <!-- SIDEBAR -->
-  <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl">
+  <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl sticky top-0 h-screen">
 
     <!-- Logo -->
     <div class="px-6 py-6 border-b border-white/10 flex items-center justify-center">
@@ -100,6 +111,21 @@ function h($v) {
 
     <!-- Bottom -->
     <div class="p-4 border-t border-white/10 space-y-3 mt-auto">
+
+    <!--------------------------- Notifications --------------------------->
+      <div class="px-4 mt-4">
+        <button onclick="toggleNotifications()" class="w-full text-left bg-white/20 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
+          <span>🔔 Notifications</span>
+          <span id="notif-count" class="hidden bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">0</span>
+        </button>
+
+        <div id="notif-box" class="mt-2 bg-white text-black rounded-lg p-3 max-h-60 overflow-y-auto shadow-lg">
+          <div id="notifications-container">
+            <p class="text-gray-400 text-sm">Loading...</p>
+          </div>
+        </div>
+      </div>
+
       <div class="flex items-center gap-3 px-2">
         <div class="w-10 h-10 rounded-full bg-[#3EDCDE] flex items-center justify-center font-bold text-white shrink-0">
           <?= strtoupper(substr($_SESSION['first_name'], 0, 1)) ?>
@@ -210,5 +236,6 @@ function h($v) {
 
   </div>
   <?php include __DIR__ . '/../1-assets/chatbot-widget.php' ?>
+  <script src="../1-assets/js/notifications.js"></script>
 </body>
 </html>

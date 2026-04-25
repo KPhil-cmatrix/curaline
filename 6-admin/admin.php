@@ -228,11 +228,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_user'])) {
 
     if (!$error) {
 
-      $count = mysqli_fetch_assoc(
-        mysqli_query($conn, "SELECT COUNT(*) AS c FROM patient_info")
-      )['c'] + 1;
+      $id_sql = "
+        SELECT MAX(CAST(SUBSTRING(patient_id, 4) AS UNSIGNED)) AS max_num
+        FROM patient_info
+        WHERE patient_id LIKE 'PAT%'
+      ";
 
-      $patient_id = 'PAT' . str_pad($count, 4, '0', STR_PAD_LEFT);
+      $id_result = mysqli_query($conn, $id_sql);
+      $id_row = mysqli_fetch_assoc($id_result);
+      $next_num = ((int)($id_row['max_num'] ?? 0)) + 1;
+
+      $patient_id = 'PAT' . str_pad($next_num, 4, '0', STR_PAD_LEFT);
 
       $first_name = clean_post($conn, 'first_name');
       $last_name = clean_post($conn, 'last_name');
@@ -414,8 +420,7 @@ $patient_list_result = mysqli_query($conn, $patient_list_sql);
 <body class="flex min-h-screen bg-gradient-to-br from-[#EEF3FA] to-[#C9D8F0] text-gray-800">
 
   <!------------ SIDEBAR ------------>
-  <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl">
-
+  <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl sticky top-0 h-screen">
     <!-- Logo -->
     <div class="px-6 py-6 border-b border-white/10 flex items-center justify-center">
       <img src="../1-assets/curalineWhiteLogo.png" alt="Curaline" class="h-12 w-auto">
@@ -538,6 +543,7 @@ $patient_list_result = mysqli_query($conn, $patient_list_sql);
         <?php endif; ?>
 
         <form method="POST" class="space-y-4 w-full">
+          <input type="hidden" name="create_user" value="1">
 
 
         <!-- Credentials Addition -->
@@ -693,6 +699,9 @@ $patient_list_result = mysqli_query($conn, $patient_list_sql);
           </div>
 
           <button
+            type="submit"
+            name="create_user"
+            value="1"
             id="submitButton"
             class="bg-[#2F5395] text-white w-full py-2 rounded-lg hover:bg-[#3EDCDE] transition">
             Create

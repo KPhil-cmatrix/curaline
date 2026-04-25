@@ -18,65 +18,17 @@ require __DIR__ . '/../3-sessions/auth_staff.php';
 
 include __DIR__ . '/../2-backend/db.php';
 
+//=====================[ Notifications ]=====================\\
+
+require __DIR__ . '/../2-backend/notifications.php';
+
 //=====================[ REQUEST VARIABLES ]=====================\\
 
 $error = null;
 $success = null;
 
-//=====================[ APPROVE / DENY HANDLER ]=====================\\
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-  $appointment_id = trim($_POST['appointment_id'] ?? '');
-  $action = trim($_POST['action'] ?? '');
-
-  if (!$appointment_id || !$action) {
-    $error = "Invalid request action.";
-  }
-  else {
-
-    //=====================[ APPROVE REQUEST ]=====================\\
-
-    if ($action === 'approve') {
-
-      $update_sql = "
-        update appointments
-        set status = 'Scheduled'
-        where appointment_id = '$appointment_id'
-        and status = 'Pending'
-      ";
-
-      if (mysqli_query($conn, $update_sql)) {
-        $success = "Appointment request approved.";
-      }
-      else {
-        $error = "Failed to approve request.";
-      }
-
-    }
-
-    //=====================[ DENY REQUEST ]=====================\\
-
-    if ($action === 'deny') {
-
-      $update_sql = "
-        update appointments
-        set status = 'Denied'
-        where appointment_id = '$appointment_id'
-        and status = 'Pending'
-      ";
-
-      if (mysqli_query($conn, $update_sql)) {
-        $success = "Appointment request denied.";
-      }
-      else {
-        $error = "Failed to deny request.";
-      }
-
-    }
-
-  }
-
+if (isset($_GET['booked'])) {
+    $success = "Appointment booked successfully.";
 }
 
 //=====================[ FETCH PENDING REQUESTS ]=====================\\
@@ -113,7 +65,7 @@ $result = mysqli_query($conn, $sql);
 
 <body class="flex min-h-screen bg-gradient-to-br from-[#EEF3FA] to-[#C9D8F0] text-gray-800">
 
-  <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl">
+  <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl sticky top-0 h-screen">
   
       <!-- Logo -->
       <div class="px-6 py-6 border-b border-white/10 flex items-center justify-center">
@@ -258,21 +210,17 @@ $result = mysqli_query($conn, $sql);
                     <td class="p-3 border-b border-[#E0E3E7]"><?= $row['status'] ?></td>
                     <td class="p-3 border-b border-[#E0E3E7]">
                       <div class="flex gap-2">
-                        <form method="POST">
-                          <input type="hidden" name="appointment_id" value="<?= $row['appointment_id'] ?>">
-                          <input type="hidden" name="action" value="approve">
-                          <button type="submit" class="bg-green-600 text-white px-3 py-1 rounded-lg">
-                            Approve
-                          </button>
-                        </form>
+                        <a
+                          href="appointments.php?appointment_id=<?= $row['appointment_id'] ?>&action=approve"
+                          class="bg-green-600 text-white px-3 py-1 rounded-lg inline-block">
+                          Approve
+                        </a>
 
-                        <form method="POST">
-                          <input type="hidden" name="appointment_id" value="<?= $row['appointment_id'] ?>">
-                          <input type="hidden" name="action" value="deny">
-                          <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded-lg">
-                            Deny
-                          </button>
-                        </form>
+                        <a
+                          href="appointments.php?appointment_id=<?= $row['appointment_id'] ?>&action=decline"
+                          class="bg-red-600 text-white px-3 py-1 rounded-lg inline-block">
+                          Deny
+                        </a>
                       </div>
                     </td>
                   </tr>

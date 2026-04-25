@@ -8,7 +8,18 @@
 - Purpose of File: Editing appointments in the database
 */
 
-include __DIR__ . '/../2-backend/db.php'; // Connect to the database
+
+//=====================[ ACCESS CONTROL ]=====================\\
+
+require __DIR__ . '/../3-sessions/auth_staff.php';
+
+//=====================[ DATABASE ACCESS ]=====================\\
+
+include __DIR__ . '/../2-backend/db.php';
+
+//=====================[ Notifications ]=====================\\
+
+require __DIR__ . '/../2-backend/notifications.php';
 
 //===========================[ VALIDATION HELPERS ]===========================\\
 
@@ -26,9 +37,6 @@ function is_valid_time($time) {
   return $t && $t->format("H:i") === $time;
 }
 
-
-// We block access if the user is not logged in and require general staff perms
-require __DIR__ . '/../3-sessions/auth_staff.php';
 
 // =================[ BASIC CHECK ]=================\\
 if (!isset($_GET['appointment_id'])) {
@@ -107,6 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $status  = clean_post($conn, 'status');
   $service = clean_post($conn, 'service');
 
+  $appointment_outcome_note = mysqli_real_escape_string($conn, trim($_POST['appointment_outcome_note'] ?? ''));
+  $recommendations_medication = mysqli_real_escape_string($conn, trim($_POST['recommendations_medication'] ?? ''));
+
   // Basic required-field validation
   if (empty($doctor) || empty($date) || empty($time) || empty($status) || empty($service)) {
     $error = 'All fields are required.';
@@ -179,14 +190,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   // =================[ UPDATE APPOINTMENT ]=================\\
   if (!$error) {
     $update_sql = "
-      UPDATE appointments SET
-        dentist_id = '$doctor',
-        scheduled_datetime = '$datetime',
-        status = '$status',
-        dental_service_type = '$service'
-      WHERE appointment_id = '$appointment_id'
-    ";
-
+    UPDATE appointments SET
+    dentist_id = '$doctor',
+    scheduled_datetime = '$datetime',
+    status = '$status',
+    dental_service_type = '$service',
+    appointment_outcome_note = '$appointment_outcome_note',
+    recommendations_medication = '$recommendations_medication'";
+    
     if (mysqli_query($conn, $update_sql)) {
       $success = "Appointment updated successfully.";
       // Reload form for instantaneous changes
@@ -223,7 +234,7 @@ $dentists = mysqli_query($conn, "
 <body class="flex min-h-screen bg-gradient-to-br from-[#EEF3FA] to-[#C9D8F0] text-gray-800">
 
   <!------------- Sidebar ------------->
-  <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl">
+  <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl sticky top-0 h-screen">
   
       <!-- Logo -->
       <div class="px-6 py-6 border-b border-white/10 flex items-center justify-center">
@@ -399,6 +410,37 @@ $dentists = mysqli_query($conn, "
               <input type="text" name="service"
                 value="<?= $appointment['dental_service_type']; ?>"
                 class="w-full border border-[#8FBFE0] rounded-lg p-2 focus:ring-2 focus:ring-[#3EDCDE]" />
+            </div>
+
+            <!--------------------------- Appointment Notes --------------------------->
+            <div class="grid md:grid-cols-2 gap-6 pt-2">
+
+              <!-- Outcome Note -->
+              <div>
+                <label class="block text-sm font-medium mb-1 text-[#2F5395]">
+                  Appointment Outcome Note
+                </label>
+                <textarea
+                  name="appointment_outcome_note"
+                  rows="4"
+                  class="w-full border border-[#8FBFE0] rounded-lg p-2 focus:ring-2 focus:ring-[#3EDCDE]"
+                  placeholder="Enter outcome notes for this appointment..."
+                ><?= htmlspecialchars($appointment['appointment_outcome_note'] ?? '') ?></textarea>
+              </div>
+
+              <!-- Recommendations -->
+              <div>
+                <label class="block text-sm font-medium mb-1 text-[#2F5395]">
+                  Recommendations / Medication
+                </label>
+                <textarea
+                  name="recommendations_medication"
+                  rows="4"
+                  class="w-full border border-[#8FBFE0] rounded-lg p-2 focus:ring-2 focus:ring-[#3EDCDE]"
+                  placeholder="Enter recommendations or medication..."
+                ><?= htmlspecialchars($appointment['recommendations_medication'] ?? '') ?></textarea>
+              </div>
+
             </div>
 
             <!-- Actions -->

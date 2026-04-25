@@ -17,5 +17,5 @@ $_SESSION = [];
 session_destroy();
 
 // Redirect back to login select or staff login
-header("Location: ../login_Select.php");
+header("Location: ../login_select.php");
 exit;

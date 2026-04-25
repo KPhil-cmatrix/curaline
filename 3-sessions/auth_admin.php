@@ -21,6 +21,6 @@ if (
   $_SESSION['logged_in'] !== true ||
   $_SESSION['staff_role'] !== 'Admin'
 ) {
-  header("Location: login.php?role=admin");
+  header("Location: ../login.php?role=admin");
   exit;
 }

@@ -5,12 +5,170 @@
 - Developers: Khalia Phillips, Havon James, and Tarik Wilson
 - Version: V2.2
 - Version Date: Dec 15, 2025
-- Purpose of File: Dasboard file that displasy general data for the system
+- Purpose of File: Dashboard file that displasy general data for the system
 */
 
-// We block access if the user is not logged in or not an admin, we require admin privildges from the admins page
+//=====================[ ACCESS CONTROL ]=====================\\
+
 require __DIR__ . '/../3-sessions/auth_staff.php';
+
+//=====================[ DATABASE ACCESS ]=====================\\
+
 include __DIR__ . '/../2-backend/db.php';
+
+//=====================[ REPORT FILTERS ]=====================\\
+
+// Filter values
+$filter_doctor = trim($_GET['doctor'] ?? '');
+$filter_patient = trim($_GET['patient'] ?? '');
+$filter_status = trim($_GET['status'] ?? '');
+$filter_receptionist = trim($_GET['receptionist'] ?? '');
+$filter_date = trim($_GET['date'] ?? '');
+
+// Pagination
+$records_per_page = 15;
+$current_page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$offset = ($current_page - 1) * $records_per_page;
+
+// Dropdown data - doctors
+$doctor_list = [];
+$doctor_sql = "SELECT staff_id, first_name, last_name, staff_role
+               FROM staff_info
+               WHERE is_active = 1
+               AND (
+                    staff_role = 'Doctor'
+                    OR staff_role = 'Dentist'
+                    OR staff_role LIKE '%Doctor%'
+                    OR staff_role LIKE '%Dentist%'
+               )
+               ORDER BY first_name, last_name";
+$doctor_result = mysqli_query($conn, $doctor_sql);
+while ($row = mysqli_fetch_assoc($doctor_result)) {
+    $doctor_list[] = $row;
+}
+
+// Dropdown data - receptionists / staff
+$receptionist_list = [];
+$receptionist_sql = "SELECT staff_id, first_name, last_name, staff_role
+                     FROM staff_info
+                     WHERE is_active = 1
+                     ORDER BY first_name, last_name";
+$receptionist_result = mysqli_query($conn, $receptionist_sql);
+while ($row = mysqli_fetch_assoc($receptionist_result)) {
+    $receptionist_list[] = $row;
+}
+
+// Dropdown data - patients
+$patient_list = [];
+$patient_sql = "SELECT patient_id, first_name, last_name
+                FROM patient_info
+                WHERE is_active = 1
+                ORDER BY first_name, last_name";
+$patient_result = mysqli_query($conn, $patient_sql);
+while ($row = mysqli_fetch_assoc($patient_result)) {
+    $patient_list[] = $row;
+}
+
+// Base report query
+$report_base_sql = "
+    FROM appointments a
+    LEFT JOIN staff_info d 
+        ON a.dentist_id = d.staff_id
+    LEFT JOIN patient_info p 
+        ON a.patient_id = p.patient_id
+    LEFT JOIN staff_info r 
+        ON a.booked_by_staff_id = r.staff_id
+    WHERE 1=1
+";
+
+$report_params = [];
+$report_types = "";
+
+if ($filter_doctor !== '') {
+    $report_base_sql .= " AND a.dentist_id = ? ";
+    $report_params[] = $filter_doctor;
+    $report_types .= "s";
+}
+
+if ($filter_patient !== '') {
+    $report_base_sql .= " AND a.patient_id = ? ";
+    $report_params[] = $filter_patient;
+    $report_types .= "s";
+}
+
+if ($filter_status !== '') {
+    $report_base_sql .= " AND a.status = ? ";
+    $report_params[] = $filter_status;
+    $report_types .= "s";
+}
+
+if ($filter_receptionist !== '') {
+    $report_base_sql .= " AND a.booked_by_staff_id = ? ";
+    $report_params[] = $filter_receptionist;
+    $report_types .= "s";
+}
+
+if ($filter_date !== '') {
+    $report_base_sql .= " AND DATE(a.scheduled_datetime) = ? ";
+    $report_params[] = $filter_date;
+    $report_types .= "s";
+}
+
+// Count total filtered records
+$count_sql = "SELECT COUNT(*) AS total " . $report_base_sql;
+$count_stmt = mysqli_prepare($conn, $count_sql);
+
+if ($count_stmt) {
+    if (!empty($report_params)) {
+        mysqli_stmt_bind_param($count_stmt, $report_types, ...$report_params);
+    }
+    mysqli_stmt_execute($count_stmt);
+    $count_result = mysqli_stmt_get_result($count_stmt);
+    $total_records = mysqli_fetch_assoc($count_result)['total'] ?? 0;
+} else {
+    die("Count query preparation failed: " . mysqli_error($conn));
+}
+
+$total_pages = max(1, ceil($total_records / $records_per_page));
+
+// Main paginated report query
+$report_sql = "
+    SELECT 
+        a.appointment_id,
+        a.dental_service_type,
+        a.scheduled_datetime,
+        a.status,
+
+        d.first_name AS doctor_first_name,
+        d.last_name AS doctor_last_name,
+
+        p.first_name AS patient_first_name,
+        p.last_name AS patient_last_name,
+
+        r.first_name AS receptionist_first_name,
+        r.last_name AS receptionist_last_name,
+        r.staff_role AS receptionist_role
+    " . $report_base_sql . "
+    ORDER BY a.scheduled_datetime DESC
+    LIMIT ? OFFSET ?
+";
+
+$report_stmt = mysqli_prepare($conn, $report_sql);
+
+if ($report_stmt) {
+    $final_params = $report_params;
+    $final_types = $report_types . "ii";
+    $final_params[] = $records_per_page;
+    $final_params[] = $offset;
+
+    mysqli_stmt_bind_param($report_stmt, $final_types, ...$final_params);
+    mysqli_stmt_execute($report_stmt);
+    $report_result = mysqli_stmt_get_result($report_stmt);
+} else {
+    die("Report query preparation failed: " . mysqli_error($conn));
+}
+
+// END OF REPORT FILTERS //
 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
@@ -59,6 +217,66 @@ $service_row = mysqli_fetch_assoc($service_result);
 
 $top_service = $service_row['dental_service_type'] ?? 'N/A';
 
+ // PRINTING LOGIC FOR THE REPORT SYSTEM  // ---
+
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+
+    $export_sql = "
+        SELECT 
+            a.appointment_id,
+            CONCAT(COALESCE(d.first_name, ''), ' ', COALESCE(d.last_name, '')) AS doctor_name,
+            CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, '')) AS patient_name,
+            a.dental_service_type,
+            a.scheduled_datetime,
+            a.status,
+            CONCAT(COALESCE(r.first_name, ''), ' ', COALESCE(r.last_name, '')) AS booked_by
+        " . $report_base_sql . "
+        ORDER BY a.scheduled_datetime DESC
+    ";
+
+    $export_stmt = mysqli_prepare($conn, $export_sql);
+
+    if ($export_stmt) {
+        if (!empty($report_params)) {
+            mysqli_stmt_bind_param($export_stmt, $report_types, ...$report_params);
+        }
+        mysqli_stmt_execute($export_stmt);
+        $export_result = mysqli_stmt_get_result($export_stmt);
+
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="curaline_appointment_report.csv"');
+
+        $output = fopen('php://output', 'w');
+
+        fputcsv($output, [
+            'Appointment ID',
+            'Doctor',
+            'Patient',
+            'Service',
+            'Scheduled Date & Time',
+            'Status',
+            'Booked By'
+        ]);
+
+        while ($row = mysqli_fetch_assoc($export_result)) {
+            fputcsv($output, [
+                $row['appointment_id'],
+                trim($row['doctor_name']),
+                trim($row['patient_name']),
+                $row['dental_service_type'],
+                $row['scheduled_datetime'],
+                $row['status'],
+                trim($row['booked_by'])
+            ]);
+        }
+
+        fclose($output);
+        exit;
+    } else {
+        die("Export query preparation failed: " . mysqli_error($conn));
+    }
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -72,7 +290,7 @@ $top_service = $service_row['dental_service_type'] ?? 'N/A';
   </head>
 
   <body class="flex min-h-screen bg-gradient-to-br from-[#EEF3FA] to-[#C9D8F0] text-gray-800">
-    <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl">
+    <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl sticky top-0 h-screen">
   
       <!-- Logo -->
       <div class="px-6 py-6 border-b border-white/10 flex items-center justify-center">
@@ -169,14 +387,14 @@ $top_service = $service_row['dental_service_type'] ?? 'N/A';
     </div>
     </aside>
 
-    <!-- Main content -->
+  <!-- Main content -->
     <div class="flex-1 p-6 space-y-6 max-w-6xl">
       <!-- Top bar -->
       <header class="app-card p-6 flex items-center justify-between mb-6">
 
         <!--CODE BORDER-->
         <div>
-          <h1 class="text-2x1 font-bold text-[#2f5385]">Dasboard</h1>
+          <h1 class="text-2x1 font-bold text-[#2f5385]">Dashboard</h1>
           <p class="text-sm text-gray-500 mt-1">
             Welcome back, <?=$_SESSION['staff_role']?>
           </p>
@@ -295,10 +513,275 @@ $top_service = $service_row['dental_service_type'] ?? 'N/A';
               </svg>
             </div>
           </div>
+        </div>
 
         <!-- End of Analytics Cards -->
+        
+        <!-- Reports / Appointment Activity Table -->
+        <div class="app-card p-6">
+
+          <!-- Header -->
+          <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-bold text-[#2F5395]">Appointment Reports</h2>
+              <p class="text-sm text-gray-500">Filter and review appointment activity</p>
+            </div>
+
+            <div class="flex gap-3">
+              <button
+                type="button"
+                onclick="printReport()"
+                class="px-5 py-2 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition"
+              >
+                Print Report
+              </button>
+
+              <a
+                href="dashboard.php?export=csv&<?= http_build_query($_GET) ?>"
+                class="px-5 py-2 rounded-xl bg-[#2F5395] text-white font-medium hover:bg-[#26457C] transition"
+              >
+                Export CSV
+              </a>
+            </div>
+          </div>
+
+          <!-- Filter Form -->
+          <form method="GET" class="grid md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            
+            <!-- Doctor -->
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">Doctor</label>
+              <select name="doctor" class="w-full border border-[#D6E2F0] rounded-xl px-3 py-2">
+                <option value="">All Doctors</option>
+                <?php foreach ($doctor_list as $doctor): ?>
+                  <option value="<?= htmlspecialchars($doctor['staff_id']) ?>"
+                    <?= ($filter_doctor === $doctor['staff_id']) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($doctor['first_name'] . ' ' . $doctor['last_name']) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+
+            <!-- Patient -->
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">Patient</label>
+              <select name="patient" class="w-full border border-[#D6E2F0] rounded-xl px-3 py-2">
+                <option value="">All Patients</option>
+                <?php foreach ($patient_list as $patient): ?>
+                  <option value="<?= htmlspecialchars($patient['patient_id']) ?>"
+                    <?= ($filter_patient === $patient['patient_id']) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($patient['first_name'] . ' ' . $patient['last_name']) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+
+            <!-- Status -->
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">Status</label>
+              <select name="status" class="w-full border border-[#D6E2F0] rounded-xl px-3 py-2">
+                <option value="">All Statuses</option>
+                <option value="Pending" <?= ($filter_status === 'Pending') ? 'selected' : '' ?>>Pending</option>
+                <option value="Approved" <?= ($filter_status === 'Scheduled') ? 'selected' : '' ?>>Scheduled</option>
+                <option value="Completed" <?= ($filter_status === 'Completed') ? 'selected' : '' ?>>Completed</option>
+                <option value="Cancelled" <?= ($filter_status === 'Cancelled') ? 'selected' : '' ?>>Cancelled</option>
+              </select>
+            </div>
+
+            <!-- Booked By -->
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">Booked By</label>
+              <select name="receptionist" class="w-full border border-[#D6E2F0] rounded-xl px-3 py-2">
+                <option value="">All Staff</option>
+                <?php foreach ($receptionist_list as $staff): ?>
+                  <option value="<?= htmlspecialchars($staff['staff_id']) ?>"
+                    <?= ($filter_receptionist === $staff['staff_id']) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($staff['first_name'] . ' ' . $staff['last_name'] . ' (' . $staff['staff_role'] . ')') ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+
+            <!-- Date -->
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">Date</label>
+              <input 
+                type="date" 
+                name="date" 
+                value="<?= htmlspecialchars($filter_date) ?>"
+                class="w-full border border-[#D6E2F0] rounded-xl px-3 py-2"
+              >
+            </div>
+
+            <!-- Buttons -->
+            <div class="lg:col-span-5 flex gap-3 mt-2">
+              <button type="submit"
+                class="px-5 py-2 rounded-xl bg-[#2F5395] text-white font-medium hover:bg-[#26457C] transition">
+                Apply Filters
+              </button>
+
+              <a href="dashboard.php"
+                class="px-5 py-2 rounded-xl bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 transition">
+                Reset
+              </a>
+            </div>
+          </form>
+
+          <!-- Table -->
+          <div id="report-print-area" class="overflow-x-auto">
+            <table class="w-full text-sm text-left border-collapse">
+              <thead>
+                <tr class="border-b border-[#D6E2F0] text-[#2F5395]">
+                  <th class="py-3 px-3 font-semibold">#</th>
+                  <th class="py-3 px-3 font-semibold">Appointment ID</th>
+                  <th class="py-3 px-3 font-semibold">Doctor</th>
+                  <th class="py-3 px-3 font-semibold">Patient</th>
+                  <th class="py-3 px-3 font-semibold">Service</th>
+                  <th class="py-3 px-3 font-semibold">Date</th>
+                  <th class="py-3 px-3 font-semibold">Status</th>
+                  <th class="py-3 px-3 font-semibold">Booked By</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <?php if ($report_result && mysqli_num_rows($report_result) > 0): ?>
+                  <?php $row_number = $offset + 1; ?>
+                  <?php while ($report = mysqli_fetch_assoc($report_result)): ?>
+                    <tr class="border-b border-gray-100 hover:bg-[#F8FBFF] transition">
+                      <!-- ENTRY -->
+                      <td class="py-3 px-3 font-medium text-gray-500">
+                        <?= $row_number++ ?>
+                      </td>
+                      <!-- APPOINTMENT ID -->
+                      <td class="py-3 px-3 font-medium text-gray-500">
+                        <?= htmlspecialchars($report['appointment_id'] ?? 'N/A') ?>
+                      </td>
+                      <!-- DOCTOR NAME-->
+                      <td class="py-3 px-3">
+                        <?= htmlspecialchars(trim(($report['doctor_first_name'] ?? '') . ' ' . ($report['doctor_last_name'] ?? ''))) ?: 'N/A' ?>
+                      </td>
+                      <!-- PATIENT NAME -->
+                      <td class="py-3 px-3">
+                        <?= htmlspecialchars(trim(($report['patient_first_name'] ?? '') . ' ' . ($report['patient_last_name'] ?? ''))) ?: 'N/A' ?>
+                      </td>
+                      <!-- SERVICE TYPE -->
+                      <td class="py-3 px-3">
+                        <?= htmlspecialchars($report['dental_service_type'] ?? 'N/A') ?>
+                      </td>
+                      <!-- DATE/TIME -->
+                      <td class="py-3 px-3 whitespace-nowrap">
+                        <?= !empty($report['scheduled_datetime']) 
+                            ? date('M d, Y h:i A', strtotime($report['scheduled_datetime'])) 
+                            : 'N/A' ?>
+                      </td>
+                      <!-- STATUS -->
+                      <td class="py-3 px-3">
+                        <?php
+                          $status = strtolower($report['status'] ?? '');
+                          $status_class = 'bg-gray-100 text-gray-600';
+
+                          if ($status === 'scheduled') {
+                            $status_class = 'bg-green-100 text-green-700';
+                          } elseif ($status === 'pending') {
+                            $status_class = 'bg-yellow-100 text-yellow-700';
+                          } elseif ($status === 'cancelled' || $status === 'declined') {
+                            $status_class = 'bg-red-100 text-red-700';
+                          } elseif ($status === 'completed') {
+                            $status_class = 'bg-blue-100 text-blue-700';
+                          } elseif ($status === 'reschedule requested') {
+                            $status_class = 'bg-yellow-100 text-yellow-700';
+                          }
+                        ?>
+
+                        <span class="px-3 py-1 rounded-full text-xs font-medium <?= $status_class ?>">
+                          <?= htmlspecialchars($report['status'] ?? 'N/A') ?>
+                        </span>
+                      </td>
+
+                      <td class="py-3 px-3">
+                        <?= htmlspecialchars(trim(($report['receptionist_first_name'] ?? '') . ' ' . ($report['receptionist_last_name'] ?? ''))) ?: 'N/A' ?>
+                      </td>
+                    </tr>
+                    <!-- END OF TABLE CONTENT -->
+                  <?php endwhile; ?>
+                <?php else: ?>
+                  <tr>
+                    <td colspan="7" class="py-6 text-center text-gray-500">
+                      No appointment records found.
+                    </td>
+                  </tr>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <?php if ($total_pages > 1): ?>
+            <div class="flex flex-wrap items-center justify-between gap-3 mt-6">
+              
+              <div class="text-sm text-gray-500">
+                Showing page <?= $current_page ?> of <?= $total_pages ?>
+                (<?= $total_records ?> total records)
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <?php
+                  $query_params = $_GET;
+                ?>
+
+                <!-- Prev -->
+                <?php if ($current_page > 1): ?>
+                  <?php $query_params['page'] = $current_page - 1; ?>
+                  <a href="?<?= http_build_query($query_params) ?>"
+                    class="px-4 py-2 rounded-xl bg-gray-200 text-gray-700 hover:bg-gray-300 transition">
+                    Prev
+                  </a>
+                <?php endif; ?>
+
+                <!-- Page numbers -->
+                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                  <?php $query_params['page'] = $i; ?>
+                  <a href="?<?= http_build_query($query_params) ?>"
+                    class="px-4 py-2 rounded-xl transition <?= $i === $current_page ? 'bg-[#2F5395] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300' ?>">
+                    <?= $i ?>
+                  </a>
+                <?php endfor; ?>
+
+                <!-- Next -->
+                <?php if ($current_page < $total_pages): ?>
+                  <?php $query_params['page'] = $current_page + 1; ?>
+                  <a href="?<?= http_build_query($query_params) ?>"
+                    class="px-4 py-2 rounded-xl bg-gray-200 text-gray-700 hover:bg-gray-300 transition">
+                    Next
+                  </a>
+                <?php endif; ?>
+              </div>
+            </div>
+          <?php endif; ?>
+
         </div>
+
+        <!-- End of Report Card -->
       </main>
     </div>
+    <!-- Printing script for reports -->
+    <script>
+      function printReport() {
+        const printContents = document.getElementById('report-print-area').innerHTML;
+        const originalContents = document.body.innerHTML;
+
+        document.body.innerHTML = `
+          <div style="padding: 24px; font-family: Arial, sans-serif;">
+            <h2 style="margin-bottom: 6px;">Curaline Appointment Reports</h2>
+            <p style="margin-bottom: 20px; color: #666;">Generated on ${new Date().toLocaleString()}</p>
+            ${printContents}
+          </div>
+        `;
+
+        window.print();
+        document.body.innerHTML = originalContents;
+        window.location.reload();
+      }
+      </script>
   </body>
 </html>

@@ -8,9 +8,17 @@
 - Purpose of File: Appointments page for users to schedule and edit appointments
 */
 
-// We block access if the user is not logged in and require general staff perms
+//=====================[ ACCESS CONTROL ]=====================\\
+
 require __DIR__ . '/../3-sessions/auth_staff.php';
+
+//=====================[ DATABASE ACCESS ]=====================\\
+
 include __DIR__ . '/../2-backend/db.php';
+
+//=====================[ Notifications ]=====================\\
+
+require __DIR__ . '/../2-backend/notifications.php';
 
 
 // ===========================[ ACTION HANDLING ]=========================== \\
@@ -20,13 +28,29 @@ if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
   $action = $_GET['action'];
   $appointment_id = mysqli_real_escape_string($conn, $_GET['appointment_id']);
 
+  // Get patient info ONCE (used for notifications)
+  $user = mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT p.patient_id, p.email, a.scheduled_datetime, a.requested_datetime
+    FROM appointments a
+    JOIN patient_info p ON a.patient_id = p.patient_id
+    WHERE a.appointment_id = '$appointment_id'
+    LIMIT 1
+  "));
+
+  $patient_id = $user['patient_id'] ?? null;
+
   // ================= APPROVE NORMAL =================
   if ($action === 'approve') {
+
     mysqli_query($conn, "
       UPDATE appointments
       SET status = 'Scheduled'
       WHERE appointment_id = '$appointment_id'
     ");
+
+    if ($patient_id) {
+      createNotification($conn, $patient_id, "Appointment Update — check your appointments page.");
+    }
 
     header("Location: appointments.php");
     exit;
@@ -34,11 +58,16 @@ if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
 
   // ================= DECLINE NORMAL =================
   if ($action === 'decline') {
+
     mysqli_query($conn, "
       UPDATE appointments
       SET status = 'Cancelled'
       WHERE appointment_id = '$appointment_id'
     ");
+
+    if ($patient_id) {
+      createNotification($conn, $patient_id, "Appointment Update — check your appointments page.");
+    }
 
     header("Location: appointments.php");
     exit;
@@ -46,6 +75,7 @@ if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
 
   // ================= APPROVE RESCHEDULE =================
   if ($action === 'approve_reschedule') {
+
     mysqli_query($conn, "
       UPDATE appointments
       SET
@@ -57,12 +87,17 @@ if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
         AND status = 'Reschedule Requested'
     ");
 
+    if ($patient_id) {
+      createNotification($conn, $patient_id, "Your reschedule request was approved. Check your appointments.");
+    }
+
     header("Location: appointments.php");
     exit;
   }
 
   // ================= DECLINE RESCHEDULE =================
   if ($action === 'decline_reschedule') {
+
     mysqli_query($conn, "
       UPDATE appointments
       SET
@@ -72,6 +107,50 @@ if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
       WHERE appointment_id = '$appointment_id'
         AND status = 'Reschedule Requested'
     ");
+
+    if ($patient_id) {
+      createNotification($conn, $patient_id, "Your reschedule request was declined.");
+    }
+
+    header("Location: appointments.php");
+    exit;
+  }
+
+  // ================= APPROVE CANCEL =================
+  if ($action === 'approve_cancel') {
+
+    mysqli_query($conn, "
+      UPDATE appointments
+      SET
+        status = 'Cancelled',
+        cancel_requested = 0,
+        requested_datetime = NULL,
+        request_note = NULL
+      WHERE appointment_id = '$appointment_id'
+    ");
+
+    if ($patient_id) {
+      createNotification($conn, $patient_id, "Your cancellation request was approved.");
+    }
+
+    header("Location: appointments.php");
+    exit;
+  }
+
+  // ================= DECLINE CANCEL =================
+  if ($action === 'decline_cancel') {
+
+    mysqli_query($conn, "
+      UPDATE appointments
+      SET
+        cancel_requested = 0,
+        request_note = NULL
+      WHERE appointment_id = '$appointment_id'
+    ");
+
+    if ($patient_id) {
+      createNotification($conn, $patient_id, "Your cancellation request was declined.");
+    }
 
     header("Location: appointments.php");
     exit;
@@ -242,7 +321,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           FROM appointments
           WHERE patient_id = '$patient'
             AND scheduled_datetime = '$datetime'
-            AND status NOT IN ('Cancelled', 'Missed', 'Declined')
+            AND status NOT IN ('Cancelled', 'Missed', 'Denied')
         ";
 
         $patient_check_result = mysqli_query($conn, $patient_time_check_sql);
@@ -253,20 +332,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
       }
 
-      // Insert only if still no errors
-      if (!$error) {
-
-        $sql = "INSERT INTO appointments
-                (patient_id, dentist_id, booked_by_staff_id, scheduled_datetime, status, dental_service_type, booking_channel)
-                VALUES ('$patient', '$doctor', '$staff', '$datetime', 'Scheduled', 'General', 'Admin')";
-
-        if (mysqli_query($conn, $sql)) {
-            $success = "Appointment booked successfully.";
-        } else {
-            $error = "Database error: " . mysqli_error($conn);
-        }
-
-      }
       // If $error is declared and not == null then we proceed with the rest
 
       if (!$error) {
@@ -274,12 +339,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sql = "INSERT INTO appointments
                 (patient_id, dentist_id, booked_by_staff_id, scheduled_datetime, status, dental_service_type, booking_channel)
                 VALUES ('$patient', '$doctor', '$staff', '$datetime', 'Scheduled', 'General', 'Admin')";
+                
+        if (mysqli_query($conn, $sql)) {
 
-          if (mysqli_query($conn, $sql)) {
-              $success = "Appointment booked successfully.";
-          } else {
-              $error = "Database error: " . mysqli_error($conn);
-          }
+            $user = mysqli_fetch_assoc(mysqli_query($conn, "
+                SELECT email
+                FROM patient_info
+                WHERE patient_id = '$patient'
+                LIMIT 1
+            "));
+
+            if ($user && !empty($user['email'])) {
+                send_email_notification(
+                    $user['email'],
+                    "Appointment Booked",
+                    "Your appointment has been scheduled for {$datetime}."
+                );
+            }
+
+            $success = "Appointment booked successfully.";
+
+        } else {
+            $error = "Database error: " . mysqli_error($conn);
+        }
 
       }
   }
@@ -307,6 +389,7 @@ SELECT
   a.scheduled_datetime,
   a.status,
   a.dental_service_type,
+  a.cancel_requested,
   d.first_name AS doctor_first,
   d.last_name  AS doctor_last,
   p.first_name AS patient_first,
@@ -315,6 +398,7 @@ FROM appointments a
 JOIN staff_info d ON a.dentist_id = d.staff_id
 JOIN patient_info p ON a.patient_id = p.patient_id
 WHERE a.status = 'Scheduled'
+  AND (a.cancel_requested = 0 OR a.cancel_requested IS NULL)
 ORDER BY a.scheduled_datetime DESC
 ";
 
@@ -324,16 +408,20 @@ SELECT
     a.scheduled_datetime,
     a.requested_datetime,
     a.request_note,
+    a.cancel_requested,
     a.status,
     a.dental_service_type,
     d.first_name AS doctor_first,
     d.last_name AS doctor_last,
     p.first_name AS patient_first,
-    p.last_name AS patient_last
+    p.last_name AS patient_last,
+    a.patient_id
 FROM appointments a
 JOIN staff_info d ON a.dentist_id = d.staff_id
 JOIN patient_info p ON a.patient_id = p.patient_id
-WHERE a.status in ('Pending','Reschedule Requested')
+WHERE a.status = 'Pending'
+   OR a.status = 'Reschedule Requested'
+   OR a.cancel_requested = 1
 ORDER BY a.scheduled_datetime DESC
 ";
 
@@ -371,8 +459,7 @@ if (!$patients_result) {
     
     <!--------------------------------------- Sidebar --------------------------------------->
 
-    <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl">
-
+    <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl sticky top-0 h-screen">
       <div class="px-6 py-6 border-b border-white/10 flex items-center justify-center">
         <img src="../1-assets/curalineWhiteLogo.png" alt="Curaline" class="h-12 w-auto">
       </div>
@@ -443,14 +530,13 @@ if (!$patients_result) {
       <!-- Top bar -->
       <header class="app-card p-6 flex items-center justify-between mb-6">
 
-        <!--CODE BORDER-->
         <div>
           <h1 class="text-2x1 font-bold text-[#2f5385]">Appointments</h1>
           <p class="text-sm text-gray-500 mt-1">
             Create and manage appointments within the clinic
           </p>
         </div>
-        <!--CODE BORDER-->
+
         <div class="flex items-center gap-3">
           <span class="text-sm text-[#9FA2B2]" >
             ID: <?=$_SESSION['user_id']?>
@@ -572,88 +658,135 @@ if (!$patients_result) {
         <!--------------------------- Section: Pending Appointments --------------------------->
         <div class="app-card bg-white rounded-xl shadow p-6">
           <h2 class="text-lg font-semibold text-[#2F5395] mb-4">
-            Pending Appointments
+            Pending Appointments & Requests
           </h2>
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="border-b border-[#8FBFE0]">
-                <th class="py-2 text-[#2F5395]">Doctor</th>
-                <th class="py-2 text-[#2F5395]">Patient</th>
-                <th class="py-2 text-[#2F5395]">Date-Time</th>
-                <th class="py-2 text-[#2F5395]">Status</th>
-                <th class="py-2 text-[#2F5395]">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
 
-                <!--------- Here we populate the table with the appointment infromation --------->
-              <?php while ($row = mysqli_fetch_assoc($pending_appointments_result)) { ?>
-                <tr class="border-b align-top">
-                  <td class="py-3 pr-6">
-                    <?php echo $row['doctor_first'] . " " . $row['doctor_last']; ?>
-                  </td>
-
-                  <td class="py-3 pr-6">
-                    <?php echo $row['patient_first'] . " " . $row['patient_last']; ?>
-                  </td>
-
-                  <td class="py-3 pr-6 min-w-[220px]">
-                    <?php echo $row['scheduled_datetime']; ?>
-
-                    <?php if ($row['status'] === 'Reschedule Requested' && !empty($row['requested_datetime'])): ?>
-                      <p class="text-xs text-gray-400 mt-1">
-                        Requested: <?php echo $row['requested_datetime']; ?>
-                      </p>
-                    <?php endif; ?>
-                  </td>
-
-                  <td class="py-3 pr-6 min-w-[180px]">
-                    <?php if ($row['status'] === 'Reschedule Requested'): ?>
-                      <span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded text-sm">
-                        Reschedule Requested
-                      </span>
-                    <?php else: ?>
-                      <?php echo $row['status']; ?>
-                    <?php endif; ?>
-                  </td>
-
-                  <td class="py-3 min-w-[180px]">
-                    <div class="flex gap-2 flex-wrap">
-                      <?php if ($row['status'] === 'Reschedule Requested'): ?>
-                        <a
-                          href="edit_appointment.php?appointment_id=<?php echo $row['appointment_id']; ?>&action=approve_reschedule"
-                          class="px-3 py-1 bg-[#3EDCDE] text-[#2F5395] rounded text-sm hover:opacity-90"
-                        >
-                          Approve
-                        </a>
-
-                        <a
-                          href="edit_appointment.php?appointment_id=<?php echo $row['appointment_id']; ?>&action=decline_reschedule"
-                          class="px-3 py-1 bg-[#9FA2B2] text-white rounded text-sm hover:opacity-90"
-                        >
-                          Decline
-                        </a>
-                      <?php else: ?>
-                        <a
-                          href="edit_appointment.php?appointment_id=<?php echo $row['appointment_id']; ?>&action=approve"
-                          class="px-3 py-1 bg-[#3EDCDE] text-[#2F5395] rounded text-sm hover:opacity-90"
-                        >
-                          Approve
-                        </a>
-
-                        <a
-                          href="edit_appointment.php?appointment_id=<?php echo $row['appointment_id']; ?>&action=decline"
-                          class="px-3 py-1 bg-[#9FA2B2] text-white rounded text-sm hover:opacity-90"
-                        >
-                          Decline
-                        </a>
-                      <?php endif; ?>
-                    </div>
-                  </td>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-[#8FBFE0]">
+                  <th class="py-2 text-[#2F5395]">Doctor</th>
+                  <th class="py-2 text-[#2F5395]">Patient</th>
+                  <th class="py-2 text-[#2F5395]">Current Date-Time</th>
+                  <th class="py-2 text-[#2F5395]">Request Details</th>
+                  <th class="py-2 text-[#2F5395]">Status</th>
+                  <th class="py-2 text-[#2F5395]">Actions</th>
                 </tr>
-              <?php } ?>
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                <?php while ($row = mysqli_fetch_assoc($pending_appointments_result)) { ?>
+                  <?php
+                    $is_reschedule = ($row['status'] === 'Reschedule Requested');
+                    $is_cancel = !empty($row['cancel_requested']);
+                    $is_normal_pending = ($row['status'] === 'Pending' && !$is_cancel);
+                  ?>
+                  <tr class="border-b align-top">
+                    <td class="py-3 pr-6">
+                      <?= htmlspecialchars($row['doctor_first'] . " " . $row['doctor_last']) ?>
+                    </td>
+
+                    <td class="py-3 pr-6">
+                      <?= htmlspecialchars($row['patient_first'] . " " . $row['patient_last']) ?>
+                    </td>
+
+                    <td class="py-3 pr-6 min-w-[220px]">
+                      <?= htmlspecialchars($row['scheduled_datetime']) ?>
+                    </td>
+
+                    <td class="py-3 pr-6 min-w-[260px]">
+                      <?php if ($is_reschedule && !empty($row['requested_datetime'])): ?>
+                        <p class="text-sm text-gray-700">
+                          <span class="font-medium">Requested Date:</span>
+                          <?= htmlspecialchars($row['requested_datetime']) ?>
+                        </p>
+                      <?php elseif ($is_cancel): ?>
+                        <p class="text-sm text-gray-700 font-medium">
+                          Patient requested cancellation.
+                        </p>
+                      <?php else: ?>
+                        <p class="text-sm text-gray-500">
+                          No additional request details.
+                        </p>
+                      <?php endif; ?>
+
+                      <?php if (!empty($row['request_note'])): ?>
+                        <p class="text-sm text-gray-600 mt-2">
+                          <span class="font-medium">Note:</span>
+                          <?= nl2br(htmlspecialchars($row['request_note'])) ?>
+                        </p>
+                      <?php endif; ?>
+                    </td>
+
+                    <td class="py-3 pr-6 min-w-[180px]">
+                      <?php if ($is_reschedule): ?>
+                        <span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded text-sm">
+                          Reschedule Requested
+                        </span>
+                      <?php elseif ($is_cancel): ?>
+                        <span class="px-3 py-1 bg-red-100 text-red-700 rounded text-sm">
+                          Cancellation Requested
+                        </span>
+                      <?php else: ?>
+                        <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm">
+                          <?= htmlspecialchars($row['status']) ?>
+                        </span>
+                      <?php endif; ?>
+                    </td>
+
+                    <td class="py-3 min-w-[220px]">
+                      <div class="flex gap-2 flex-wrap">
+                        <?php if ($is_reschedule): ?>
+                          <a
+                            href="appointments.php?appointment_id=<?= urlencode($row['appointment_id']) ?>&action=approve_reschedule"
+                            class="px-3 py-1 bg-[#3EDCDE] text-[#2F5395] rounded text-sm hover:opacity-90"
+                          >
+                            Approve
+                          </a>
+
+                          <a
+                            href="appointments.php?appointment_id=<?= urlencode($row['appointment_id']) ?>&action=decline_reschedule"
+                            class="px-3 py-1 bg-[#9FA2B2] text-white rounded text-sm hover:opacity-90"
+                          >
+                            Decline
+                          </a>
+
+                        <?php elseif ($is_cancel): ?>
+                          <a
+                            href="appointments.php?appointment_id=<?= urlencode($row['appointment_id']) ?>&action=approve_cancel"
+                            class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:opacity-90"
+                          >
+                            Approve Cancel
+                          </a>
+
+                          <a
+                            href="appointments.php?appointment_id=<?= urlencode($row['appointment_id']) ?>&action=decline_cancel"
+                            class="px-3 py-1 bg-[#9FA2B2] text-white rounded text-sm hover:opacity-90"
+                          >
+                            Decline Cancel
+                          </a>
+
+                        <?php elseif ($is_normal_pending): ?>
+                          <a
+                            href="appointments.php?appointment_id=<?= urlencode($row['appointment_id']) ?>&action=approve"
+                            class="px-3 py-1 bg-[#3EDCDE] text-[#2F5395] rounded text-sm hover:opacity-90"
+                          >
+                            Approve
+                          </a>
+
+                          <a
+                            href="appointments.php?appointment_id=<?= urlencode($row['appointment_id']) ?>&action=decline"
+                            class="px-3 py-1 bg-[#9FA2B2] text-white rounded text-sm hover:opacity-90"
+                          >
+                            Decline
+                          </a>
+                        <?php endif; ?>
+                      </div>
+                    </td>
+                  </tr>
+                <?php } ?>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!--------------------------- Section: Upcoming Appointments --------------------------->
@@ -698,8 +831,6 @@ if (!$patients_result) {
                   </td>
                 </tr>
               <?php } ?>
-
-
             </tbody>
           </table>
         </div>
