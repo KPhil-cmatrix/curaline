@@ -36,6 +36,9 @@ $appointment_id = (int)$_GET['appointment_id'];
 $error = null;
 $success = null;
 
+$appointment_outcome_note = mysqli_real_escape_string($conn, $_POST['appointment_outcome_note'] ?? '');
+$recommendations_medication = mysqli_real_escape_string($conn, $_POST['recommendations_medication'] ?? '');
+
 //===========================[ QUICK APPROVE / DECLINE ]===========================\\
 
 if (isset($_GET['action'])) {
@@ -112,6 +115,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         dentist_id = '$doctor',
         scheduled_datetime = '$datetime',
         status = '$status',
+        appointment_outcome_note = '$appointment_outcome_note',
+        recommendations_medication = '$recommendations_medication',
         dental_service_type = '$service'
       WHERE appointment_id = '$appointment_id'
       LIMIT 1
