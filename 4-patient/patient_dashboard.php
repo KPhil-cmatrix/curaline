@@ -149,75 +149,92 @@ $result = mysqli_query($conn, $sql);
       </p>
     </section>
 
-    <!-- Recent Appointments -->
-    <section class="app-card p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-xl font-semibold text-[#2F5395]">Recent Appointments</h3>
-        <a href="patient_appointments.php" class="text-sm font-medium text-[#2F5395] hover:underline">
-          View All
-        </a>
-      </div>
+      <!-- Recent Appointments -->
+      <section class="app-card p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xl font-semibold text-[#2F5395]">Recent Appointments</h3>
+          <a href="patient_appointments.php" class="text-sm font-medium text-[#2F5395] hover:underline">
+            View All
+          </a>
+        </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left border-collapse">
-          <thead>
-            <tr class="border-b border-[#8FBFE0] text-[#2F5395]">
-              <th class="py-3">Date & Time</th>
-              <th class="py-3">Doctor</th>
-              <th class="py-3">Service</th>
-              <th class="py-3">Status</th>
-              <th class="py-3">Outcome Note</th>
-              <th class="py-3">Recommendations</th>
-            </tr>
-          </thead>
-          <tbody class="text-gray-700">
-            <?php if ($result && mysqli_num_rows($result) > 0): ?>
-              <?php while ($row = mysqli_fetch_assoc($result)): ?>
-                <tr class="border-b border-gray-100 hover:bg-[#F8FBFF] transition-all duration-200">
-                  <td class="py-3"><?= htmlspecialchars($row['scheduled_datetime']) ?></td>
-                  <td class="py-3"><?= htmlspecialchars($row['doctor_first_name']) ?> <?= htmlspecialchars($row['doctor_last_name']) ?></td>
-                  <td class="py-3"><?= htmlspecialchars($row['dental_service_type']) ?></td>
-                  <td class="py-3">
-                    <?php
-                      $status = strtolower($row['status']);
-                      $status_class = 'bg-gray-100 text-gray-600';
-
-                      if ($status === 'scheduled') {
-                        $status_class = 'bg-green-100 text-green-700';
-                      } elseif ($status === 'pending') {
-                        $status_class = 'bg-yellow-100 text-yellow-700';
-                      } elseif ($status === 'cancelled' || $status === 'declined') {
-                        $status_class = 'bg-red-100 text-red-700';
-                      } elseif ($status === 'completed') {
-                        $status_class = 'bg-blue-100 text-blue-700';
-                      }
-                    ?>
-                  <td class="py-3">
-                    <?= !empty($row['appointment_outcome_note']) 
-                        ? htmlspecialchars($row['appointment_outcome_note']) 
-                        : '<span class="text-gray-400">N/A</span>' ?>
-                  </td>
-
-                  <td class="py-3">
-                    <?= !empty($row['recommendations_medication']) 
-                        ? htmlspecialchars($row['recommendations_medication']) 
-                        : '<span class="text-gray-400">N/A</span>' ?>
-                  </td>
-                    <span class="px-3 py-1 rounded-full text-xs font-medium <?= $status_class ?>">
-                      <?= htmlspecialchars(ucfirst($row['status'])) ?>
-                    </span>
-                  </td>
-                </tr>
-              <?php endwhile; ?>
-            <?php else: ?>
-              <tr>
-                <td class="py-4 text-gray-400" colspan="4">No appointments found.</td>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr class="border-b border-[#8FBFE0] text-[#2F5395]">
+                <th class="py-3">Date & Time</th>
+                <th class="py-3">Doctor</th>
+                <th class="py-3">Service</th>
+                <th class="py-3">Status</th>
+                <th class="py-3">Outcome Note</th>
+                <th class="py-3">Recommendations</th>
               </tr>
-            <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
-    </section>
+            </thead>
+
+            <tbody class="text-gray-700">
+              <?php if ($result && mysqli_num_rows($result) > 0): ?>
+                <?php while ($row = mysqli_fetch_assoc($result)): ?>
+                  <?php
+                    $status = strtolower($row['status']);
+                    $status_class = 'bg-gray-100 text-gray-600';
+
+                    if ($status === 'scheduled') {
+                      $status_class = 'bg-green-100 text-green-700';
+                    } elseif ($status === 'pending') {
+                      $status_class = 'bg-yellow-100 text-yellow-700';
+                    } elseif ($status === 'cancelled' || $status === 'declined') {
+                      $status_class = 'bg-red-100 text-red-700';
+                    } elseif ($status === 'completed') {
+                      $status_class = 'bg-blue-100 text-blue-700';
+                    }
+                  ?>
+
+                  <tr class="border-b border-gray-100 hover:bg-[#F8FBFF] transition-all duration-200">
+                    <td class="py-3">
+                      <?= htmlspecialchars(date('Y-m-d h:i A', strtotime($row['scheduled_datetime']))) ?>
+                    </td>
+
+                    <td class="py-3">
+                      <?= htmlspecialchars($row['doctor_first_name']) ?> <?= htmlspecialchars($row['doctor_last_name']) ?>
+                    </td>
+
+                    <td class="py-3">
+                      <?= htmlspecialchars($row['dental_service_type']) ?>
+                    </td>
+
+                    <td class="py-3">
+                      <span class="px-3 py-1 rounded-full text-xs font-medium <?= $status_class ?>">
+                        <?= htmlspecialchars(ucfirst($row['status'])) ?>
+                      </span>
+                    </td>
+
+                    <td class="py-3">
+                      <?php if ($status === 'completed' && !empty($row['appointment_outcome_note'])): ?>
+                        <?= htmlspecialchars($row['appointment_outcome_note']) ?>
+                      <?php else: ?>
+                        <span class="text-gray-400">N/A</span>
+                      <?php endif; ?>
+                    </td>
+
+                    <td class="py-3">
+                      <?php if ($status === 'completed' && !empty($row['recommendations_medication'])): ?>
+                        <?= htmlspecialchars($row['recommendations_medication']) ?>
+                      <?php else: ?>
+                        <span class="text-gray-400">N/A</span>
+                      <?php endif; ?>
+                    </td>
+                  </tr>
+                <?php endwhile; ?>
+
+              <?php else: ?>
+                <tr>
+                  <td class="py-4 text-gray-400" colspan="6">No appointments found.</td>
+                </tr>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
   </div>
   <?php include __DIR__ . '/../1-assets/chatbot-widget.php' ?>
