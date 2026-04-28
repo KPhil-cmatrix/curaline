@@ -1,76 +1,61 @@
 <?php
 
-/*
-- System Name: Curaline Clinic Appointment and Patient Management System (Curaline)
-- Developers: Khalia Phillips, Havon James, and Tarik Wilson
-- Version: V2.2
-- Version Date: Dec 15, 2025
-- Purpose of File: Editing appointments in the database
-*/
-
-
-//=====================[ ACCESS CONTROL ]=====================\\
-
 require __DIR__ . '/../3-sessions/auth_staff.php';
-
-//=====================[ DATABASE ACCESS ]=====================\\
-
 include __DIR__ . '/../2-backend/db.php';
-
-//=====================[ Notifications ]=====================\\
-
 require __DIR__ . '/../2-backend/notifications.php';
 
-//===========================[ VALIDATION HELPERS ]===========================\\
+//===========================[ HELPERS ]===========================\\
 
 function clean_post($conn, $key) {
   return mysqli_real_escape_string($conn, trim($_POST[$key] ?? ""));
 }
 
-function is_valid_date($date) {
-  $d = DateTime::createFromFormat("Y-m-d", $date);
-  return $d && $d->format("Y-m-d") === $date;
+function notify_patient($conn, $appointment_id, $message) {
+  $appointment_id = (int)$appointment_id;
+
+  $result = mysqli_query($conn, "
+    SELECT patient_id
+    FROM appointments
+    WHERE appointment_id = '$appointment_id'
+    LIMIT 1
+  ");
+
+  if ($result && mysqli_num_rows($result) === 1) {
+    $row = mysqli_fetch_assoc($result);
+    createNotification($conn, $row['patient_id'], $message);
+  }
 }
 
-function is_valid_time($time) {
-  $t = DateTime::createFromFormat("H:i", $time);
-  return $t && $t->format("H:i") === $time;
-}
+//===========================[ BASIC CHECK ]===========================\\
 
-
-// =================[ BASIC CHECK ]=================\\
 if (!isset($_GET['appointment_id'])) {
   die("Invalid appointment.");
 }
 
-$appointment_id = $_GET['appointment_id'];
+$appointment_id = (int)$_GET['appointment_id'];
 $error = null;
 $success = null;
 
-// =================[ QUICK APPROVE / DECLINE ]=================\\
+//===========================[ QUICK APPROVE / DECLINE ]===========================\\
 
 if (isset($_GET['action'])) {
 
   if ($_GET['action'] === 'approve') {
-    $sql = "UPDATE appointments 
-            SET status = 'Scheduled' 
-            WHERE appointment_id = '$appointment_id'";
+    $sql = "UPDATE appointments SET status = 'Scheduled' WHERE appointment_id = '$appointment_id'";
   }
 
   if ($_GET['action'] === 'decline') {
-    $sql = "UPDATE appointments 
-            SET status = 'Cancelled' 
-            WHERE appointment_id = '$appointment_id'";
+    $sql = "UPDATE appointments SET status = 'Cancelled' WHERE appointment_id = '$appointment_id'";
   }
 
   if (isset($sql) && mysqli_query($conn, $sql)) {
+    notify_patient($conn, $appointment_id, "Appointment Update — check your appointments page.");
     header("Location: appointments.php");
     exit;
   }
-
 }
 
-// =================[ LOAD APPOINTMENT ]=================\\
+//===========================[ LOAD APPOINTMENT ]===========================\\
 
 $appointment_sql = "
   SELECT *
@@ -83,9 +68,9 @@ $appointment = mysqli_fetch_assoc($appointment_result);
 
 if (!$appointment) {
   die("Appointment not found.");
-
 }
-// =================[ HANDLE DELETE ]=================\\
+
+//===========================[ DELETE / CANCEL ]===========================\\
 
 if (isset($_POST['delete_appointment'])) {
 
@@ -96,6 +81,7 @@ if (isset($_POST['delete_appointment'])) {
   ";
 
   if (mysqli_query($conn, $delete_sql)) {
+    notify_patient($conn, $appointment_id, "Appointment Cancelled — check your appointments page.");
     header("Location: appointments.php?deleted=1");
     exit;
   } else {
@@ -103,112 +89,50 @@ if (isset($_POST['delete_appointment'])) {
   }
 }
 
-
-// =================[ HANDLE DB UPDATE ]=================\\
+//===========================[ UPDATE APPOINTMENT ]===========================\\
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-  // We collect updated values from the form \\
   $doctor  = clean_post($conn, 'doctor');
   $date    = clean_post($conn, 'date');
   $time    = clean_post($conn, 'time');
   $status  = clean_post($conn, 'status');
   $service = clean_post($conn, 'service');
 
-  $appointment_outcome_note = mysqli_real_escape_string($conn, trim($_POST['appointment_outcome_note'] ?? ''));
-  $recommendations_medication = mysqli_real_escape_string($conn, trim($_POST['recommendations_medication'] ?? ''));
-
-  // Basic required-field validation
   if (empty($doctor) || empty($date) || empty($time) || empty($status) || empty($service)) {
     $error = 'All fields are required.';
   }
 
-  // Validate formats and allowed values
-  $allowed_statuses = ['Pending','Scheduled','Checked-In','In-Service','Completed','Cancelled','Missed'];
-  if (!$error && !in_array($status, $allowed_statuses, true)) {
-    $error = 'Invalid status selected.';
-  }
-  if (!$error && (!is_valid_date($date) || !is_valid_time($time))) {
-    $error = 'Invalid date or time format.';
-  }
-  if (!$error && !preg_match('/^(DEN|NUR|STA)\d{4}$/', $doctor)) {
-    $error = 'Invalid doctor selected.';
-  }
-  if (!$error && strlen($service) > 50) {
-    $error = 'Dental service must be 50 characters or less.';
-  }
-
-  // Ensure selected doctor exists and is active
   if (!$error) {
-    $doctor_exists = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS c FROM staff_info WHERE staff_id='$doctor' AND staff_role='Dentist' AND is_active=1"))['c'];
-    if ((int)$doctor_exists !== 1) { $error = 'Selected doctor is not available.'; }
-  }
 
+    $datetime = date("Y-m-d H:i:s", strtotime("$date $time"));
 
-  // Combine date + time into a proper datetime \\
-  $datetime = date("Y-m-d H:i:s", strtotime("$date $time"));
-
-  // We get current datetime from the database
-  $current_datetime = $appointment['scheduled_datetime'];
-
-  // Checking if the datetime has changed and we classify it as a rescheduled appointment
-  $is_reschedule = ($datetime !== $current_datetime);
-
-  // We check all the appointments that are to be held ofr restrictions
-  $futurestatuses = ['Scheduled', 'Checked-In', 'In-Service'];
-
-  // Minimum allowed booking time (1 hour from now) Along with is reschedule\\
-  if ($is_reschedule && in_array($status, $futurestatuses, true)) {
-    $minAllowedTime = date("Y-m-d H:i:s", strtotime("+1 hour"));
-    if ($datetime < $minAllowedTime) {
-      $error = "Appointments must be at least 1 hour from now.";
-    }
-  }
-
-  // =================[ DOUBLE BOOKING CHECK ]=================\\
-  // We ensure the same dentist cannot be booked at the same time \\
-  // We also exclude the current appointment being edited \\
-  if (!$error && $is_reschedule) {
-
-    $time_check_sql = "
-      SELECT COUNT(*) AS total
-      FROM appointments
-      WHERE dentist_id = '$doctor'
-        AND scheduled_datetime = '$datetime'
-        AND appointment_id != '$appointment_id'
-        AND status NOT IN ('Cancelled', 'Missed')
+    $update_sql = "
+      UPDATE appointments SET
+        dentist_id = '$doctor',
+        scheduled_datetime = '$datetime',
+        status = '$status',
+        dental_service_type = '$service'
+      WHERE appointment_id = '$appointment_id'
+      LIMIT 1
     ";
 
-    $check = mysqli_fetch_assoc(mysqli_query($conn, $time_check_sql));
- 
-
-    if ($check['total'] > 0) {
-      $error = "This doctor already has an appointment at that time.";
-    }
-  }
-
-  // =================[ UPDATE APPOINTMENT ]=================\\
-  if (!$error) {
-    $update_sql = "
-    UPDATE appointments SET
-    dentist_id = '$doctor',
-    scheduled_datetime = '$datetime',
-    status = '$status',
-    dental_service_type = '$service',
-    appointment_outcome_note = '$appointment_outcome_note',
-    recommendations_medication = '$recommendations_medication'";
-    
     if (mysqli_query($conn, $update_sql)) {
+
+      notify_patient($conn, $appointment_id, "Appointment Updated — check your appointments page.");
+
       $success = "Appointment updated successfully.";
-      // Reload form for instantaneous changes
+
+      // reload updated data
       $appointment = mysqli_fetch_assoc(mysqli_query($conn, $appointment_sql));
+
     } else {
       $error = "Database error: " . mysqli_error($conn);
     }
   }
 }
 
-// =================[ DROPDOWNS ]=================\\
+//===========================[ DROPDOWN DATA ]===========================\\
 
 $dentists = mysqli_query($conn, "
   SELECT staff_id, first_name, last_name
@@ -216,8 +140,6 @@ $dentists = mysqli_query($conn, "
   WHERE staff_role = 'Dentist'
     AND is_active = 1
 ");
-
-//==========[ We get dentists that are active ]==========\\
 
 ?>
 

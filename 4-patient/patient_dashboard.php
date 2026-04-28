@@ -30,6 +30,8 @@ $sql = "
     a.scheduled_datetime,
     a.status,
     a.dental_service_type,
+    a.appointment_outcome_note,
+    a.recommendations_medication, 
     si.first_name as doctor_first_name,
     si.last_name as doctor_last_name
   from appointments a
@@ -49,6 +51,7 @@ $result = mysqli_query($conn, $sql);
   <title>Curaline – Patient Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="../1-assets/ui.css">
+  <script src="../1-assets/js/notifications.js"></script>
 </head>
 
 <body class="flex min-h-screen bg-gradient-to-br from-[#EEF3FA] to-[#C9D8F0] text-gray-800">
@@ -98,21 +101,6 @@ $result = mysqli_query($conn, $sql);
 
     <!-- Bottom -->
     <div class="p-4 border-t border-white/10 space-y-3 mt-auto">
-
-    <!--------------------------- Notifications --------------------------->
-    <div class="px-4 mt-4">
-      <button onclick="toggleNotifications()" class="w-full text-left bg-white/20 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
-        <span>🔔 Notifications</span>
-        <span id="notif-count" class="hidden bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">0</span>
-      </button>
-
-      <div id="notif-box" class="mt-2 bg-white text-black rounded-lg p-3 max-h-60 overflow-y-auto shadow-lg">
-        <div id="notifications-container">
-          <p class="text-gray-400 text-sm">Loading...</p>
-        </div>
-      </div>
-
-    </div>
       <div class="flex items-center gap-3 px-2">
         <div class="w-10 h-10 rounded-full bg-[#3EDCDE] flex items-center justify-center font-bold text-white shrink-0">
           <?= strtoupper(substr($_SESSION['first_name'], 0, 1)) ?>
@@ -178,6 +166,8 @@ $result = mysqli_query($conn, $sql);
               <th class="py-3">Doctor</th>
               <th class="py-3">Service</th>
               <th class="py-3">Status</th>
+              <th class="py-3">Outcome Note</th>
+              <th class="py-3">Recommendations</th>
             </tr>
           </thead>
           <tbody class="text-gray-700">
@@ -202,6 +192,17 @@ $result = mysqli_query($conn, $sql);
                         $status_class = 'bg-blue-100 text-blue-700';
                       }
                     ?>
+                  <td class="py-3">
+                    <?= !empty($row['appointment_outcome_note']) 
+                        ? htmlspecialchars($row['appointment_outcome_note']) 
+                        : '<span class="text-gray-400">N/A</span>' ?>
+                  </td>
+
+                  <td class="py-3">
+                    <?= !empty($row['recommendations_medication']) 
+                        ? htmlspecialchars($row['recommendations_medication']) 
+                        : '<span class="text-gray-400">N/A</span>' ?>
+                  </td>
                     <span class="px-3 py-1 rounded-full text-xs font-medium <?= $status_class ?>">
                       <?= htmlspecialchars(ucfirst($row['status'])) ?>
                     </span>

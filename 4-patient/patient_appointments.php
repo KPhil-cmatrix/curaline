@@ -36,6 +36,8 @@ $sql = "
     a.dental_service_type,
     a.appointment_outcome_note,
     a.recommendations_medication,
+    a.appointment_outcome_note,
+    a.recommendations_medication,
     si.first_name as doctor_first_name,
     si.last_name as doctor_last_name
   from appointments a
@@ -221,6 +223,7 @@ if (!$request_error) {
     <title>Curaline – My Appointments</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="../1-assets/ui.css">
+    <script src="../1-assets/js/notifications.js"></script>
   </head>
 
   <body class="flex min-h-screen bg-gradient-to-br from-[#EEF3FA] to-[#C9D8F0] text-gray-800">
@@ -270,20 +273,6 @@ if (!$request_error) {
 
       <!-- Bottom -->
       <div class="p-4 border-t border-white/10 space-y-3 mt-auto">
-
-      <!--------------------------- Notifications --------------------------->
-      <div class="px-4 mt-4">
-        <button onclick="toggleNotifications()" class="w-full text-left bg-white/20 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
-          <span>🔔 Notifications</span>
-          <span id="notif-count" class="hidden bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">0</span>
-        </button>
-
-        <div id="notif-box" class="mt-2 bg-white text-black rounded-lg p-3 max-h-60 overflow-y-auto shadow-lg">
-          <div id="notifications-container">
-            <p class="text-gray-400 text-sm">Loading...</p>
-          </div>
-        </div>
-      </div>
 
         <div class="flex items-center gap-3 px-2">
           <div class="w-10 h-10 rounded-full bg-[#3EDCDE] flex items-center justify-center font-bold text-white shrink-0">
@@ -407,6 +396,8 @@ if (!$request_error) {
               <th class="py-3">Service</th>
               <th class="py-3">Status</th>
               <th class="py-3">Actions</th>
+              <th class="py-3">Outcome Note</th>
+              <th class="py-3">Recommendations</th>
             </tr>
           </thead>
 
@@ -485,6 +476,18 @@ if (!$request_error) {
 
                 <?php endif; ?>
 
+              </td>
+
+              <td class="py-3">
+                <?= !empty($row['appointment_outcome_note']) 
+                    ? htmlspecialchars($row['appointment_outcome_note']) 
+                    : '<span class="text-gray-400">N/A</span>' ?>
+              </td>
+
+              <td class="py-3">
+                <?= !empty($row['recommendations_medication']) 
+                    ? htmlspecialchars($row['recommendations_medication']) 
+                    : '<span class="text-gray-400">N/A</span>' ?>
               </td>
 
               <!-- Actions -->

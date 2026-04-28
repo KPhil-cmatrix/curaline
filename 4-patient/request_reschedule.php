@@ -160,7 +160,9 @@ if (isset($_GET['success'])) {
   <title>Curaline – Appointment Request</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="../1-assets/ui.css">
+  <script src="../1-assets/js/notifications.js"></script>
 </head>
+
 <body class="flex min-h-screen bg-gradient-to-br from-[#EEF3FA] to-[#C9D8F0] text-gray-800">
 
   <aside class="w-64 bg-gradient-to-b from-[#2F5395] to-[#26457C] text-white flex flex-col shadow-xl sticky top-0 h-screen">
@@ -192,20 +194,6 @@ if (isset($_GET['success'])) {
     </nav>
 
     <div class="p-4 border-t border-white/10 space-y-3 mt-auto">
-
-    <!--------------------------- Notifications --------------------------->
-    <div class="px-4 mt-4">
-      <button onclick="toggleNotifications()" class="w-full text-left bg-white/20 px-4 py-2 rounded-lg text-sm flex items-center justify-between">
-        <span>🔔 Notifications</span>
-        <span id="notif-count" class="hidden bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">0</span>
-      </button>
-
-      <div id="notif-box" class="mt-2 bg-white text-black rounded-lg p-3 max-h-60 overflow-y-auto shadow-lg">
-        <div id="notifications-container">
-          <p class="text-gray-400 text-sm">Loading...</p>
-        </div>
-      </div>
-    </div>
 
       <div class="flex items-center gap-3 px-2">
         <div class="w-10 h-10 rounded-full bg-[#3EDCDE] flex items-center justify-center font-bold text-white shrink-0">
@@ -337,7 +325,6 @@ if (isset($_GET['success'])) {
 
     toggleRequestFields();
   </script>
-
-<script src="../1-assets/js/notifications.js"></script>
+  <script src="../1-assets/js/notifications.js"></script>
 </body>
 </html>

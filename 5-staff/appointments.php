@@ -26,7 +26,11 @@ require __DIR__ . '/../2-backend/notifications.php';
 if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
 
   $action = $_GET['action'];
-  $appointment_id = mysqli_real_escape_string($conn, $_GET['appointment_id']);
+  $appointment_id = (int) ($_GET['appointment_id'] ?? 0);
+
+  if ($appointment_id <= 0) {
+      die("Invalid appointment ID.");
+  }
 
   // Get patient info ONCE (used for notifications)
   $user = mysqli_fetch_assoc(mysqli_query($conn, "
@@ -64,7 +68,7 @@ if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
       SET status = 'Cancelled'
       WHERE appointment_id = '$appointment_id'
     ");
-
+    
     if ($patient_id) {
       createNotification($conn, $patient_id, "Appointment Update — check your appointments page.");
     }
@@ -88,7 +92,7 @@ if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
     ");
 
     if ($patient_id) {
-      createNotification($conn, $patient_id, "Your reschedule request was approved. Check your appointments.");
+      createNotification($conn, $patient_id, "Appointment Update — check your appointments page.");
     }
 
     header("Location: appointments.php");
@@ -109,7 +113,7 @@ if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
     ");
 
     if ($patient_id) {
-      createNotification($conn, $patient_id, "Your reschedule request was declined.");
+      createNotification($conn, $patient_id, "Appointment Update — check your appointments page.");
     }
 
     header("Location: appointments.php");
@@ -130,7 +134,7 @@ if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
     ");
 
     if ($patient_id) {
-      createNotification($conn, $patient_id, "Your cancellation request was approved.");
+      createNotification($conn, $patient_id, "Appointment Update — check your appointments page.");
     }
 
     header("Location: appointments.php");
@@ -149,7 +153,7 @@ if (isset($_GET['action']) && isset($_GET['appointment_id'])) {
     ");
 
     if ($patient_id) {
-      createNotification($conn, $patient_id, "Your cancellation request was declined.");
+      createNotification($conn, $patient_id, "Appointment Update — check your appointments page.");
     }
 
     header("Location: appointments.php");

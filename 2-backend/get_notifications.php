@@ -12,20 +12,29 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = mysqli_real_escape_string($conn, $_SESSION['user_id']);
 
 $sql = "
-    SELECT message, created_at
+    SELECT notification_id, message, created_at
     FROM notifications
     WHERE user_id = '$user_id'
+      AND is_read = 0
     ORDER BY created_at DESC
-    LIMIT 5
+    LIMIT 1
 ";
 
 $result = mysqli_query($conn, $sql);
 $data = [];
 
-if ($result) {
-    while ($row = mysqli_fetch_assoc($result)) {
-        $data[] = $row;
-    }
+if ($result && mysqli_num_rows($result) > 0) {
+    $row = mysqli_fetch_assoc($result);
+    $data[] = $row;
+
+    $notification_id = (int)$row['notification_id'];
+
+    mysqli_query($conn, "
+        UPDATE notifications
+        SET is_read = 1
+        WHERE notification_id = $notification_id
+          AND user_id = '$user_id'
+    ");
 }
 
 echo json_encode($data);
