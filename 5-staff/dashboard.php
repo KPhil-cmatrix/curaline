@@ -139,6 +139,9 @@ $report_sql = "
         a.scheduled_datetime,
         a.status,
 
+        a.appointment_outcome_note,
+        a.recommendations_medication,
+
         d.first_name AS doctor_first_name,
         d.last_name AS doctor_last_name,
 
@@ -640,6 +643,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                   <th class="py-3 px-3 font-semibold">Date</th>
                   <th class="py-3 px-3 font-semibold">Status</th>
                   <th class="py-3 px-3 font-semibold">Booked By</th>
+                  <th class="py-3 px-3 font-semibold">Outcome Note</th>
+                  <th class="py-3 px-3 font-semibold">Recommendations</th>
                 </tr>
               </thead>
 
@@ -647,7 +652,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                 <?php if ($report_result && mysqli_num_rows($report_result) > 0): ?>
                   <?php $row_number = $offset + 1; ?>
                   <?php while ($report = mysqli_fetch_assoc($report_result)): ?>
-                    <tr class="border-b border-gray-100 hover:bg-[#F8FBFF] transition">
+                    <tr class="border-b border-gray-100 hover:bg-[#F8FBFF] transition align-top">
                       <!-- ENTRY -->
                       <td class="py-3 px-3 font-medium text-gray-500">
                         <?= $row_number++ ?>
@@ -700,6 +705,17 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 
                       <td class="py-3 px-3">
                         <?= htmlspecialchars(trim(($report['receptionist_first_name'] ?? '') . ' ' . ($report['receptionist_last_name'] ?? ''))) ?: 'N/A' ?>
+                      </td>
+                      <td class="py-3 px-3 max-w-[200px] whitespace-normal break-words">
+                        <?= !empty($report['appointment_outcome_note']) 
+                          ? nl2br(htmlspecialchars($report['appointment_outcome_note'])) 
+                          : 'N/A' ?>
+                      </td>
+
+                      <td class="py-3 px-3 max-w-[200px] whitespace-normal break-words">
+                        <?= !empty($report['recommendations_medication']) 
+                            ? nl2br(htmlspecialchars($report['recommendations_medication'])) 
+                            : 'N/A' ?>
                       </td>
                     </tr>
                     <!-- END OF TABLE CONTENT -->

@@ -36,9 +36,6 @@ $appointment_id = (int)$_GET['appointment_id'];
 $error = null;
 $success = null;
 
-$appointment_outcome_note = mysqli_real_escape_string($conn, $_POST['appointment_outcome_note'] ?? '');
-$recommendations_medication = mysqli_real_escape_string($conn, $_POST['recommendations_medication'] ?? '');
-
 //===========================[ QUICK APPROVE / DECLINE ]===========================\\
 
 if (isset($_GET['action'])) {
@@ -101,6 +98,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $time    = clean_post($conn, 'time');
   $status  = clean_post($conn, 'status');
   $service = clean_post($conn, 'service');
+
+  $appointment_outcome_note = mysqli_real_escape_string($conn, $_POST['appointment_outcome_note'] ?? '');
+  $recommendations_medication = mysqli_real_escape_string($conn, $_POST['recommendations_medication'] ?? '');
 
   if (empty($doctor) || empty($date) || empty($time) || empty($status) || empty($service)) {
     $error = 'All fields are required.';

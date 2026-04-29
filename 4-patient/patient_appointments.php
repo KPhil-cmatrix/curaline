@@ -391,13 +391,13 @@ if (!$request_error) {
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-[#8FBFE0] text-[#2F5395]">
-              <th class="py-3">Date</th>
-              <th class="py-3">Doctor</th>
-              <th class="py-3">Service</th>
-              <th class="py-3">Status</th>
-              <th class="py-3">Actions</th>
-              <th class="py-3">Outcome Note</th>
-              <th class="py-3">Recommendations</th>
+              <th class="py-3 px-3 font-semibold">Date</th>
+              <th class="py-3 px-3 font-semibold">Doctor</th>
+              <th class="py-3 px-3 font-semibold">Service</th>
+              <th class="py-3 px-3 font-semibold">Status</th>
+              <th class="py-3 px-3 font-semibold">Actions</th>
+              <th class="py-3 px-3 font-semibold">Outcome Note</th>
+              <th class="py-3 px-3 font-semibold">Recommendations</th>
             </tr>
           </thead>
 
@@ -456,38 +456,6 @@ if (!$request_error) {
                     Requested: <?= htmlspecialchars($row['requested_datetime']) ?>
                   </p>
                 <?php endif; ?>
-
-                <!-- Notes (only for completed) -->
-                <?php if ($row['status'] === 'Completed'): ?>
-
-                  <?php if (!empty($row['appointment_outcome_note'])): ?>
-                    <div class="mt-2 text-xs text-gray-600">
-                      <span class="font-semibold text-[#2F5395]">Outcome:</span><br>
-                      <?= nl2br(htmlspecialchars($row['appointment_outcome_note'])) ?>
-                    </div>
-                  <?php endif; ?>
-
-                  <?php if (!empty($row['recommendations_medication'])): ?>
-                    <div class="mt-2 text-xs text-gray-600">
-                      <span class="font-semibold text-[#2F5395]">Recommendations / Medication:</span><br>
-                      <?= nl2br(htmlspecialchars($row['recommendations_medication'])) ?>
-                    </div>
-                  <?php endif; ?>
-
-                <?php endif; ?>
-
-              </td>
-
-              <td class="py-3">
-                <?= !empty($row['appointment_outcome_note']) 
-                    ? htmlspecialchars($row['appointment_outcome_note']) 
-                    : '<span class="text-gray-400">N/A</span>' ?>
-              </td>
-
-              <td class="py-3">
-                <?= !empty($row['recommendations_medication']) 
-                    ? htmlspecialchars($row['recommendations_medication']) 
-                    : '<span class="text-gray-400">N/A</span>' ?>
               </td>
 
               <!-- Actions -->
@@ -506,6 +474,20 @@ if (!$request_error) {
                 <?php else: ?>
                   <span class="text-gray-400">N/A</span>
                 <?php endif; ?>
+              </td>
+
+              <!-- Outcome and recommendations -->
+
+              <td class="py-3">
+                <?= !empty($row['appointment_outcome_note']) 
+                    ? htmlspecialchars($row['appointment_outcome_note']) 
+                    : '<span class="text-gray-400">N/A</span>' ?>
+              </td>
+
+              <td class="py-3">
+                <?= !empty($row['recommendations_medication']) 
+                    ? htmlspecialchars($row['recommendations_medication']) 
+                    : '<span class="text-gray-400">N/A</span>' ?>
               </td>
 
             </tr>

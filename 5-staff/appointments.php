@@ -340,9 +340,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       if (!$error) {
 
-        $sql = "INSERT INTO appointments
-                (patient_id, dentist_id, booked_by_staff_id, scheduled_datetime, status, dental_service_type, booking_channel)
-                VALUES ('$patient', '$doctor', '$staff', '$datetime', 'Scheduled', 'General', 'Admin')";
+      $sql = "INSERT INTO appointments
+        (patient_id, dentist_id, booked_by_staff_id, scheduled_datetime, status, dental_service_type, booking_channel)
+        VALUES ('$patient', '$doctor', '$staff', '$datetime', 'Scheduled', '$service', 'Admin')";
                 
         if (mysqli_query($conn, $sql)) {
 
